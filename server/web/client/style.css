@@ -1,0 +1,62 @@
+@import './theme-tokens.css';
+@import './ui-controls.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  --default-contextmenu: show;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#app {
+  isolation: isolate;
+}
+
+button,
+input,
+textarea,
+select {
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+}
+
+button:active:not(:disabled) {
+  opacity: 0.92;
+}
+
+input,
+textarea,
+select {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}

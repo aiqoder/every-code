@@ -1,0 +1,166 @@
+/* GitHub 风格：按钮与正文层级（与 theme-tokens 配套） */
+
+:root,
+html[data-theme='dark'],
+html[data-theme='light'] {
+  --text-body: 14px;
+  --text-body-leading: 1.5;
+  --text-small: 12px;
+  --text-title: 20px;
+  --text-subtitle: 16px;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --btn-h: 32px;
+  --btn-h-sm: 28px;
+  --btn-px: 12px;
+  --btn-font: 14px;
+  --btn-radius: 6px;
+  --btn-default-bg: var(--surface);
+  --btn-default-border: var(--border);
+  --btn-default-text: var(--text);
+  --btn-default-hover-bg: var(--surface-hover);
+}
+
+html[data-theme='light'] {
+  --btn-default-bg: #f6f8fa;
+  --btn-default-hover-bg: #f3f4f6;
+}
+
+html[data-theme='dark'] {
+  --btn-default-bg: #21262d;
+  --btn-default-hover-bg: #30363d;
+}
+
+/* 通用按钮（对话框、设置等可复用 class="btn"） */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--btn-h);
+  padding: 5px var(--btn-px);
+  border-radius: var(--btn-radius);
+  border: 1px solid var(--btn-default-border);
+  background: var(--btn-default-bg);
+  color: var(--btn-default-text);
+  font-family: var(--sans);
+  font-size: var(--btn-font);
+  font-weight: var(--font-medium);
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--btn-default-hover-bg);
+  border-color: var(--border-strong);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: transparent;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: rgba(27, 31, 36, 0.15);
+  color: #ffffff;
+  font-weight: var(--font-medium);
+}
+
+html[data-theme='dark'] .btn.primary {
+  border-color: rgba(240, 246, 252, 0.1);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn.sm {
+  min-height: var(--btn-h-sm);
+  padding: 3px 10px;
+  font-size: var(--text-small);
+  line-height: 18px;
+}
+
+.btn.danger {
+  color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 40%, var(--border));
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border-color: var(--error);
+}
+
+/* 主操作单行按钮 */
+.btn-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--btn-h);
+  padding: 5px var(--btn-px);
+  border: 1px solid rgba(27, 31, 36, 0.15);
+  border-radius: var(--btn-radius);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: var(--btn-font);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+}
+
+.btn-go:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-go:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 标题与辅助文案 */
+.text-title {
+  font-size: var(--text-title);
+  font-weight: var(--font-semibold);
+  line-height: 1.25;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.text-subtitle {
+  font-size: var(--text-subtitle);
+  font-weight: var(--font-semibold);
+  line-height: 1.375;
+  color: var(--text);
+}
+
+.text-muted {
+  font-size: var(--text-small);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.eyebrow-label {
+  font-size: var(--text-small);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  line-height: 1.5;
+}

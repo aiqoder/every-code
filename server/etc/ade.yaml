@@ -1,0 +1,57 @@
+Name: ade-server
+Host: 0.0.0.0
+Port: 8183
+Timeout: 0
+MaxBytes: 33554432
+
+Database:
+  Driver: sqlite
+  Host: 127.0.0.1
+  Port: 3306
+  User: root
+  Password: ""
+  Name: ade
+  Charset: utf8mb4
+  SqlitePath: data/app.db
+  MaxIdleConns: 10
+  MaxOpenConns: 50
+  ConnMaxLifetime: 1h
+  LogLevel: warn
+  AutoMigrate: true
+
+# 账号体系在 user-feedback：登录与 OAuth2 均由该服务提供。
+UserFeedback:
+  BaseURL: https://uf.yigechengzi.com
+  # 请在 user-feedback 后台为本副本单独登记 OAuth2 客户端，再把凭证填到这里。
+  ClientID: ade-server
+  ClientSecret: "REPLACE_WITH_OAUTH_CLIENT_SECRET"
+  RedirectURI: http://127.0.0.1:8183/oauth/callback
+  AdminRoleCode: agent_admin
+  Timeout: 10s
+
+ClientAPI:
+  InvokeTimeout: 60s
+  HeartbeatInterval: 30s
+
+Store:
+  StorageDir: data/store
+  MaxPackageBytes: 20971520
+
+# 系统技能目录：server/skills/<id>/SKILL.md
+Skills:
+  Dir: skills
+
+# catalog / hub 依赖 Redis。也可以指向本机 Redis。
+Redis:
+  Addr: 127.0.0.1:6379
+  Password: ""
+  DB: 1
+  CatalogTTL: 90s
+
+Brand:
+  Name: ADE
+  Logo: ⬢
+
+Cors:
+  Enabled: true
+  AllowedOrigins: ["*"]

@@ -1,0 +1,128 @@
+@import 'tailwindcss';
+@import '@client/theme-tokens.css';
+@import '@client/ui-controls.css';
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  --admin-sidebar: #f6f8fa;
+  --admin-sidebar-text: #1f2328;
+  --admin-sidebar-muted: #656d76;
+  --admin-sidebar-active: #ffffff;
+  --admin-sidebar-border: #d0d7de;
+  --admin-header-bg: #ffffff;
+  --admin-main-bg: #ffffff;
+  --admin-text: #1f2328;
+  --admin-text-muted: #656d76;
+  --admin-border: #d0d7de;
+}
+
+html[data-theme='dark'] {
+  --admin-sidebar: #010409;
+  --admin-sidebar-text: #e6edf3;
+  --admin-sidebar-muted: #8b949e;
+  --admin-sidebar-active: #161b22;
+  --admin-sidebar-border: #30363d;
+  --admin-header-bg: #0d1117;
+  --admin-main-bg: #0d1117;
+  --admin-text: #e6edf3;
+  --admin-text-muted: #8b949e;
+  --admin-border: #30363d;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', sans-serif;
+  background: var(--admin-main-bg);
+  color: var(--admin-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Element Plus：贴近 GitHub 中性色 */
+html[data-theme='dark'] {
+  --el-bg-color: #0d1117;
+  --el-bg-color-page: #0d1117;
+  --el-bg-color-overlay: #161b22;
+  --el-text-color-primary: #e6edf3;
+  --el-text-color-regular: #c9d1d9;
+  --el-text-color-secondary: #8b949e;
+  --el-border-color: #30363d;
+  --el-border-color-light: #21262d;
+  --el-fill-color-blank: #0d1117;
+  --el-color-primary: #4493f8;
+}
+
+html[data-theme='light'] {
+  --el-color-primary: #0969da;
+}
+
+/* Element Plus：按钮与文字贴近 GitHub */
+.el-button {
+  font-weight: 500;
+  font-size: 14px;
+  border-radius: 6px;
+  --el-button-font-weight: 500;
+}
+
+.el-button--large {
+  font-size: 14px;
+}
+
+.el-button--small {
+  font-size: 12px;
+}
+
+.el-button--primary {
+  --el-button-border-color: rgba(27, 31, 36, 0.15);
+}
+
+html[data-theme='dark'] .el-button--default {
+  --el-button-bg-color: #21262d;
+  --el-button-border-color: #30363d;
+  --el-button-hover-bg-color: #30363d;
+  --el-button-hover-border-color: #8b949e;
+  --el-button-text-color: #e6edf3;
+}
+
+html[data-theme='light'] .el-button--default {
+  --el-button-bg-color: #f6f8fa;
+  --el-button-border-color: #d0d7de;
+  --el-button-hover-bg-color: #f3f4f6;
+  --el-button-hover-border-color: #afb8c1;
+  --el-button-text-color: #24292f;
+}
+
+.el-card {
+  border-radius: 6px;
+  border-color: var(--admin-border);
+}
+
+.el-card__header {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.el-table {
+  font-size: 14px;
+}
+
+.el-form-item__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.el-input__inner,
+.el-textarea__inner {
+  font-size: 14px;
+}
+
+.el-segmented {
+  font-size: 12px;
+  font-weight: 500;
+}
