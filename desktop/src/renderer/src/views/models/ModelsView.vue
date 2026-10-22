@@ -9,6 +9,7 @@ import Switch from '../../components/Switch.vue'
 import TextField from '../../components/TextField.vue'
 import { llmApi, type LlmModelRow, type LlmProvider } from '../../api'
 import { messageOf, useSessionStore } from '../../stores/session'
+import { confirm } from '../../composables/confirm'
 import { toast } from '../../composables/toast'
 import { builtinModelProviders, matchBuiltin, type BuiltinProvider, type ProviderProtocol } from '../../lib/providerPresets'
 import { isProviderEnabled, setProviderEnabled } from '../../lib/providerEnabled'
@@ -271,7 +272,13 @@ async function saveCustom(): Promise<void> {
 
 async function removeProvider(item: LlmProvider): Promise<void> {
   if (!item.editable || matchBuiltin(item.name)) return
-  if (!window.confirm(`删除供应商「${item.name}」？其下的模型也会一并删除。`)) return
+  const ok = await confirm({
+    title: '删除供应商',
+    message: `删除「${item.name}」后，其下的模型也会一并删除。`,
+    confirmText: '删除',
+    danger: true
+  })
+  if (!ok) return
   try {
     await llmApi.deleteProvider(item.id)
     selectedKey.value = 'builtin:deepseek'
@@ -352,7 +359,13 @@ async function makeDefault(item: LlmModelRow): Promise<void> {
 
 async function removeModel(item: LlmModelRow): Promise<void> {
   if (!item.editable) return
-  if (!window.confirm(`删除模型「${item.name}」？`)) return
+  const ok = await confirm({
+    title: '删除模型',
+    message: `确定删除「${item.name}」？`,
+    confirmText: '删除',
+    danger: true
+  })
+  if (!ok) return
   try {
     await llmApi.deleteModel(item.id)
     if (session.profile.modelId === item.id) await session.setDefaultModel(0)

@@ -12,7 +12,6 @@ import type {
   Todo,
   EnvCheckItem
 } from '../../../shared/types'
-import { pipelineAgents } from '../lib/agents'
 import { request, setHttpSession, loginAccount, watchTaskEvents, postSse, installAuthExpiry, httpReady } from './http'
 
 export { setHttpSession, loginAccount, watchTaskEvents, postSse, installAuthExpiry, httpReady }
@@ -272,11 +271,12 @@ export const adeApi = {
       name: string
       overview: string
       plan: string
-      todos: Array<{ title: string; detail?: string; acceptance?: string; dependsOn?: string }>
+      todos: Array<{ title: string; detail?: string }>
     }
   ) => post<Task>(`/api/ade/projects/${projectId}/tasks`, payload),
 
   getTask: (id: number) => get<Task>(`/api/ade/tasks/${id}`),
+  deleteTask: (id: number) => del<{ id: number }>(`/api/ade/tasks/${id}`),
   updateDescription: (id: number, description: string) =>
     post<Task>(`/api/ade/tasks/${id}/description`, { description }),
   applyPlan: (
@@ -285,12 +285,12 @@ export const adeApi = {
       name: string
       overview: string
       plan: string
-      todos: Array<{ title: string; detail?: string; acceptance?: string; dependsOn?: string }>
+      todos: Array<{ title: string; detail?: string }>
     }
   ) => post<Task>(`/api/ade/tasks/${id}/plan`, payload),
-  startTask: (id: number) => post<Task>(`/api/ade/tasks/${id}/start`, pipelineAgents()),
-  retryTask: (id: number) => post<Task>(`/api/ade/tasks/${id}/retry`, pipelineAgents()),
-  addTodo: (id: number, payload: { title: string; detail?: string; acceptance?: string; dependsOn?: string }) =>
+  startTask: (id: number) => post<Task>(`/api/ade/tasks/${id}/start`),
+  retryTask: (id: number) => post<Task>(`/api/ade/tasks/${id}/retry`),
+  addTodo: (id: number, payload: { title: string; detail?: string }) =>
     post<Todo>(`/api/ade/tasks/${id}/todos`, payload),
   updateTodo: (todoId: number, payload: Record<string, unknown>) =>
     patch<Todo>(`/api/ade/todos/${todoId}`, payload),

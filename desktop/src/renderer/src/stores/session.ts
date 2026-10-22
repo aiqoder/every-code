@@ -238,6 +238,11 @@ export const useSessionStore = defineStore('session', () => {
     tasks.value = { ...tasks.value, [task.projectId]: next }
   }
 
+  function removeTask(taskId: number, projectId: number): void {
+    const list = tasks.value[projectId] ?? []
+    tasks.value = { ...tasks.value, [projectId]: list.filter((t) => t.id !== taskId) }
+  }
+
   function selectProject(id: number): void {
     currentProjectId.value = id
     localStorage.setItem('ade:project', String(id))
@@ -307,6 +312,7 @@ export const useSessionStore = defineStore('session', () => {
     loadTasks,
     loadAllTasks,
     upsertTask,
+    removeTask,
     selectProject,
     loadSkills,
     loadLocalSkills,

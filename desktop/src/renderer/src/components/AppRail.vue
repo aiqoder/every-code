@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { adeApi, bridge } from '../api'
 import { messageOf, useSessionStore } from '../stores/session'
+import { confirm } from '../composables/confirm'
 import { toast } from '../composables/toast'
 import { createPage } from '../surfaces/create'
 import Dialog from './Dialog.vue'
@@ -27,7 +28,6 @@ const editForm = reactive({
   localDir: ''
 })
 
-const removing = ref<Project | null>(null)
 const removeBusy = ref(false)
 
 function createProject(): void {
@@ -174,32 +174,35 @@ async function openFolder(project: Project): Promise<void> {
   }
 }
 
-function askRemove(project: Project): void {
+async function askRemove(project: Project): Promise<void> {
   closeMenu()
-  removing.value = project
-}
-
-async function confirmRemove(): Promise<void> {
-  const project = removing.value
-  if (!project || removeBusy.value) return
+  if (removeBusy.value) return
   removeBusy.value = true
   try {
-    const wasCurrent = session.currentProjectId === project.id
-    await adeApi.deleteProject(project.id)
-    const nextTasks = { ...session.tasks }
-    delete nextTasks[project.id]
-    session.tasks = nextTasks
-    await session.loadProjects()
-    if (wasCurrent) {
-      const next = session.projects[0]
-      session.selectProject(next?.id ?? 0)
-      if (next) await session.loadTasks(next.id)
-      if (route.path.startsWith('/tasks/')) router.push('/project')
-    }
-    removing.value = null
-    toast.success(`已移除项目「${project.name}」`)
-  } catch (err) {
-    toast.error(messageOf(err))
+    await confirm({
+      title: '移除项目',
+      subtitle: '任务记录会删除，本机目录保留。',
+      message: `移除「${project.name}」后，这个项目下的任务记录会删除。文件夹仍留在原处。`,
+      detail: project.localDir,
+      confirmText: '移除',
+      danger: true,
+      busyText: '移除中…',
+      action: async () => {
+        const wasCurrent = session.currentProjectId === project.id
+        await adeApi.deleteProject(project.id)
+        const nextTasks = { ...session.tasks }
+        delete nextTasks[project.id]
+        session.tasks = nextTasks
+        await session.loadProjects()
+        if (wasCurrent) {
+          const next = session.projects[0]
+          session.selectProject(next?.id ?? 0)
+          if (next) await session.loadTasks(next.id)
+          if (route.path.startsWith('/tasks/')) router.push('/project')
+        }
+        toast.success(`已移除项目「${project.name}」`)
+      }
+    })
   } finally {
     removeBusy.value = false
   }
@@ -302,7 +305,9 @@ const statusDot = computed(() => {
         <button type="button" role="menuitem" :disabled="createPage.envBusy" @click="checkEnvironment(menu.project)">
           {{ createPage.envBusy ? '检测中…' : '检测开发环境' }}
         </button>
-        <button type="button" role="menuitem" class="danger" @click="askRemove(menu.project)">移除</button>
+        <button type="button" role="menuitem" class="danger" :disabled="removeBusy" @click="askRemove(menu.project)">
+          移除
+        </button>
       </div>
     </Teleport>
 
@@ -334,27 +339,6 @@ const statusDot = computed(() => {
         <div class="spacer" />
         <button class="btn primary" type="button" :disabled="editBusy" @click="saveEdit">
           {{ editBusy ? '保存中…' : '保存' }}
-        </button>
-      </template>
-    </Dialog>
-
-    <Dialog
-      :open="!!removing"
-      title="移除项目"
-      subtitle="任务记录会删除，本机目录保留。"
-      width="420px"
-      :persistent="removeBusy"
-      @close="removing = null"
-    >
-      <p v-if="removing" class="confirm-copy">
-        移除「{{ removing.name }}」后，这个项目下的任务记录会删除。文件夹仍留在原处。
-      </p>
-      <p v-if="removing?.localDir" class="dir confirm-dir ellipsis" :title="removing.localDir">{{ removing.localDir }}</p>
-      <template #footer>
-        <button class="btn ghost" type="button" :disabled="removeBusy" @click="removing = null">取消</button>
-        <div class="spacer" />
-        <button class="btn danger" type="button" :disabled="removeBusy" @click="confirmRemove">
-          {{ removeBusy ? '移除中…' : '移除' }}
         </button>
       </template>
     </Dialog>
@@ -713,14 +697,6 @@ const statusDot = computed(() => {
   border: 1px solid var(--line-soft);
   border-radius: var(--r-sm);
   background: var(--ink-850);
-}
-.confirm-copy {
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text);
-}
-.confirm-dir {
-  margin-top: 10px;
 }
 .spacer {
   flex: 1;

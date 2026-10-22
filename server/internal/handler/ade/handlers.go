@@ -28,18 +28,6 @@ func getService(svcCtx *svc.ServiceContext) (*adelogic.Service, error) {
 	return s, nil
 }
 
-func decodePipelineAgents(r *http.Request) (adelogic.PipelineAgents, error) {
-	var req struct {
-		Coder    string `json:"coder"`
-		Verifier string `json:"verifier"`
-		Reviewer string `json:"reviewer"`
-	}
-	if err := decode(r, &req); err != nil {
-		return adelogic.PipelineAgents{}, err
-	}
-	return adelogic.PipelineAgents{Coder: req.Coder, Verifier: req.Verifier, Reviewer: req.Reviewer}, nil
-}
-
 func decode(r *http.Request, dest any) error {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 8<<20))
 	if err != nil {
@@ -337,7 +325,7 @@ func CreateTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		// clientId 记在会话表；建任务时不传，等挂任务的会话创建后再回填。
-		t, err := s.CreateTask(r.Context(), userID(r), p.ID, req.Description, "", adelogic.TaskPlanInput{
+		t, err := s.CreateTask(r.Context(), userID(r), p.ID, req.Description, adelogic.TaskPlanInput{
 			Name:     req.Name,
 			Overview: req.Overview,
 			Plan:     req.Plan,
@@ -384,6 +372,27 @@ func GetTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		hresp.WriteOK(w, s.ToTaskVO(r.Context(), t, p.Name))
+	}
+}
+
+// DeleteTaskHandler DELETE /api/ade/tasks/:id
+func DeleteTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, err := getService(svcCtx)
+		if err != nil {
+			hresp.WriteFail(w, err.Error(), err)
+			return
+		}
+		t, _, err := loadTask(r, s)
+		if err != nil {
+			hresp.WriteFail(w, err.Error(), err)
+			return
+		}
+		if err := s.DeleteTask(r.Context(), t); err != nil {
+			hresp.WriteFail(w, err.Error(), err)
+			return
+		}
+		hresp.WriteOK(w, map[string]any{"id": t.ID})
 	}
 }
 
@@ -464,12 +473,7 @@ func StartTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			hresp.WriteFail(w, err.Error(), err)
 			return
 		}
-		agents, err := decodePipelineAgents(r)
-		if err != nil {
-			hresp.WriteFail(w, "参数错误", err)
-			return
-		}
-		if err := s.StartTask(r.Context(), t, agents); err != nil {
+		if err := s.StartTask(r.Context(), t); err != nil {
 			hresp.WriteFail(w, err.Error(), err)
 			return
 		}
@@ -490,12 +494,7 @@ func RetryTaskHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			hresp.WriteFail(w, err.Error(), err)
 			return
 		}
-		agents, err := decodePipelineAgents(r)
-		if err != nil {
-			hresp.WriteFail(w, "参数错误", err)
-			return
-		}
-		if err := s.RetryTask(r.Context(), t, agents); err != nil {
+		if err := s.RetryTask(r.Context(), t); err != nil {
 			hresp.WriteFail(w, err.Error(), err)
 			return
 		}
@@ -517,16 +516,14 @@ func AddTodoHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			Title      string `json:"title"`
-			Detail     string `json:"detail"`
-			Acceptance string `json:"acceptance"`
-			DependsOn  string `json:"dependsOn"`
+			Title  string `json:"title"`
+			Detail string `json:"detail"`
 		}
 		if err := decode(r, &req); err != nil {
 			hresp.WriteFail(w, "参数错误", err)
 			return
 		}
-		td, err := s.AddUserTodo(r.Context(), t.ID, req.Title, req.Detail, req.Acceptance, req.DependsOn)
+		td, err := s.AddUserTodo(r.Context(), t.ID, req.Title, req.Detail)
 		if err != nil {
 			hresp.WriteFail(w, err.Error(), err)
 			return
@@ -558,16 +555,15 @@ func UpdateTodoHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			Title      string `json:"title"`
-			Detail     string `json:"detail"`
-			Acceptance string `json:"acceptance"`
-			Status     string `json:"status"`
+			Title  string `json:"title"`
+			Detail string `json:"detail"`
+			Status string `json:"status"`
 		}
 		if err := decode(r, &req); err != nil {
 			hresp.WriteFail(w, "参数错误", err)
 			return
 		}
-		if err := s.UpdateUserTodo(r.Context(), td, req.Title, req.Detail, req.Acceptance, req.Status); err != nil {
+		if err := s.UpdateUserTodo(r.Context(), td, req.Title, req.Detail, req.Status); err != nil {
 			hresp.WriteFail(w, err.Error(), err)
 			return
 		}

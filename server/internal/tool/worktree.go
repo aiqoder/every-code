@@ -3,11 +3,9 @@ package tool
 import (
 	"context"
 	"strings"
-	"time"
 
 	"chengzi-agent-code-server/internal/repository"
 	"chengzi-agent-code-server/pkg/agentloop"
-	"chengzi-agent-code-server/pkg/timex"
 )
 
 type saveWorktreeTool struct {
@@ -23,7 +21,7 @@ type worktreeArgs struct {
 func (t *saveWorktreeTool) Name() string { return SaveWorktree }
 
 func (t *saveWorktreeTool) Description() string {
-	return "用 shell 创建或确认 worktree 之后，记下它的绝对路径和分支。调用成功后，后续文件工具和 shell 都会改到这个目录。"
+	return "用 shell 创建或确认 worktree 之后，把本轮后续的文件工具和 shell 改到这个目录。路径只在这一轮对话里生效。"
 }
 
 func (t *saveWorktreeTool) Parameters() map[string]any {
@@ -59,12 +57,6 @@ func (t *saveWorktreeTool) Execute(ctx context.Context, argsJSON string, rt *age
 	}
 	task, err := t.scope.task(ctx, t.repo)
 	if err != nil {
-		return "", err
-	}
-	task.Worktree = path
-	task.Branch = branch
-	task.UpdatedAt = timex.LocalTime(time.Now())
-	if err := t.repo.UpdateTask(ctx, task); err != nil {
 		return "", err
 	}
 	if rt != nil {

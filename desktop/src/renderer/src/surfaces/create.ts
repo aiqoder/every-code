@@ -62,7 +62,6 @@ export async function createProject(input: {
     const sceneId = input.sceneId ?? 0
     if (!name) return fail('请填写项目名称')
     if (!localDir) return fail('请选择本地目录')
-    if (!sceneId && !description) return fail('请选择场景')
     if (!modelId) return fail('先选择一个模型')
     const status = await bridge.gitStatus(localDir)
     if (!status.isRepo || !status.ready) {
@@ -216,7 +215,7 @@ export async function createTask(input: {
   name: string
   overview: string
   plan: string
-  todos: Array<{ title: string; detail?: string; acceptance?: string; dependsOn?: string }>
+  todos: Array<{ title: string; detail?: string }>
 }): Promise<ActionResult> {
   try {
     const session = useSessionStore()
@@ -227,9 +226,7 @@ export async function createTask(input: {
     const todos = input.todos
       .map((item) => ({
         title: item.title.trim(),
-        detail: item.detail?.trim() ?? '',
-        acceptance: item.acceptance?.trim() ?? '',
-        dependsOn: item.dependsOn?.trim() ?? ''
+        detail: item.detail?.trim() ?? ''
       }))
       .filter((item) => item.title)
     if (!text) return fail('写一句要做什么')
@@ -259,7 +256,7 @@ export async function openTaskPage(taskId: number): Promise<ActionResult> {
   return ok(task ? `已打开任务「${task.name || id}」的计划页` : `已打开任务 #${id} 的计划页`)
 }
 
-function asTodos(value: unknown): Array<{ title: string; detail?: string; acceptance?: string; dependsOn?: string }> {
+function asTodos(value: unknown): Array<{ title: string; detail?: string }> {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
     if (!item || typeof item !== 'object') return []
@@ -267,9 +264,7 @@ function asTodos(value: unknown): Array<{ title: string; detail?: string; accept
     return [
       {
         title: asText(row.title),
-        detail: asText(row.detail),
-        acceptance: asText(row.acceptance),
-        dependsOn: asText(row.dependsOn)
+        detail: asText(row.detail)
       }
     ]
   })
@@ -307,10 +302,10 @@ export const createSurface: PageSurface = {
         {
           name: { type: 'string', description: '项目名称' },
           localDir: { type: 'string', description: '本机项目目录的绝对路径' },
-          sceneId: { type: 'number', description: '场景 id' },
+          sceneId: { type: 'number', description: '场景 id，可省略表示不选场景' },
           modelId: { type: 'number', description: '模型 id，可省略则用当前默认模型' }
         },
-        ['name', 'localDir', 'sceneId']
+        ['name', 'localDir']
       ),
       async run(args) {
         try {
@@ -458,9 +453,7 @@ export const createSurface: PageSurface = {
               required: ['title'],
               properties: {
                 title: { type: 'string' },
-                detail: { type: 'string' },
-                acceptance: { type: 'string' },
-                dependsOn: { type: 'string' }
+                detail: { type: 'string' }
               }
             }
           }

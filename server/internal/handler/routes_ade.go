@@ -39,6 +39,7 @@ func RegisterAdeHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{Method: http.MethodDelete, Path: "/deploy-tasks/:id", Handler: ade.DeleteDeployTaskHandler(serverCtx)},
 
 				{Method: http.MethodGet, Path: "/tasks/:id", Handler: ade.GetTaskHandler(serverCtx)},
+				{Method: http.MethodDelete, Path: "/tasks/:id", Handler: ade.DeleteTaskHandler(serverCtx)},
 				{Method: http.MethodPost, Path: "/tasks/:id/description", Handler: ade.UpdateDescriptionHandler(serverCtx)},
 				{Method: http.MethodPost, Path: "/tasks/:id/plan", Handler: ade.ApplyPlanHandler(serverCtx)},
 				{Method: http.MethodPost, Path: "/tasks/:id/start", Handler: ade.StartTaskHandler(serverCtx)},

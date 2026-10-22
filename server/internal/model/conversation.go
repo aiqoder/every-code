@@ -26,7 +26,7 @@ type ConversationLink struct {
 	ID             uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
 	ConversationID uint64          `gorm:"not null;uniqueIndex;comment:会话，一个会话最多一行" json:"conversationId"`
 	ProjectID      uint64          `gorm:"not null;index:idx_conversation_link_scope,priority:1;comment:所属项目" json:"projectId"`
-	Channel        string          `gorm:"size:32;not null;default:'';index:idx_conversation_link_scope,priority:2;comment:工位。create 创建，execute 执行，test 测试，deploy 部署" json:"channel"`
+	Channel        string          `gorm:"size:32;not null;default:'';index:idx_conversation_link_scope,priority:2;comment:工位。create 创建，execute 执行，deploy 部署" json:"channel"`
 	TaskID         uint64          `gorm:"not null;default:0;index;comment:所属任务，0 表示不属于某条任务" json:"taskId"`
 	CreatedAt      timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
 	UpdatedAt      timex.LocalTime `gorm:"comment:更新时间" json:"updatedAt"`

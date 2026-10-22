@@ -26,10 +26,8 @@ func (t *addTodoTool) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"title":      map[string]any{"type": "string"},
-			"detail":     map[string]any{"type": "string"},
-			"acceptance": map[string]any{"type": "string"},
-			"dependsOn":  map[string]any{"type": "string"},
+			"title":  map[string]any{"type": "string"},
+			"detail": map[string]any{"type": "string"},
 		},
 		"required":             []string{"title"},
 		"additionalProperties": false,
@@ -54,14 +52,12 @@ func (t *addTodoTool) Execute(ctx context.Context, argsJSON string, _ *agentloop
 		return "", err
 	}
 	td := &model.Todo{
-		TaskID:     task.ID,
-		Seq:        len(existing) + 1,
-		Title:      title,
-		Detail:     strings.TrimSpace(args.Detail),
-		Acceptance: strings.TrimSpace(args.Acceptance),
-		DependsOn:  strings.TrimSpace(args.DependsOn),
-		Status:     model.TodoStatusTodo,
-		Source:     model.TodoSourceAgent,
+		TaskID: task.ID,
+		Seq:    len(existing) + 1,
+		Title:  title,
+		Detail: strings.TrimSpace(args.Detail),
+		Status: model.TodoStatusTodo,
+		Source: model.TodoSourceAgent,
 	}
 	if err := t.repo.CreateTodo(ctx, td); err != nil {
 		return "", err
@@ -197,9 +193,6 @@ func (t *completeTodoTool) Execute(ctx context.Context, argsJSON string, _ *agen
 	}
 	if td.Status != model.TodoStatusDone {
 		td.Status = model.TodoStatusDone
-		if t.scope.ConversationID > 0 {
-			td.ConversationID = t.scope.ConversationID
-		}
 		td.UpdatedAt = timex.LocalTime(time.Now())
 		if err := t.repo.UpdateTodo(ctx, td); err != nil {
 			return "", err

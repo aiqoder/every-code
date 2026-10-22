@@ -2,21 +2,6 @@ package model
 
 import "chengzi-agent-code-server/pkg/timex"
 
-// ADE 任务状态。状态挂在任务上，不挂在项目上。
-const (
-	TaskStatusPending  = "pending"   // 待执行
-	TaskStatusRunning  = "running"   // 执行中
-	TaskStatusWaitTest = "wait_test" // 待测试
-	TaskStatusTested   = "tested"    // 测试完成
-	TaskStatusRerun    = "rerun"     // 重新执行
-	TaskStatusFailed   = "failed"    // 执行出错
-)
-
-// 任务固定先计划再执行。模式不再由界面或接口选择。
-const (
-	TaskModePlan = "plan"
-)
-
 // 待办来源。
 const (
 	TodoSourceAgent = "agent"
@@ -34,7 +19,6 @@ const (
 const (
 	RunKindPlanner   = "planner"
 	RunKindCoder     = "coder"
-	RunKindVerifier  = "verifier"
 	RunKindReviewer  = "reviewer"
 	RunKindInstaller = "installer"
 	RunKindDeploy    = "deploy"
@@ -76,52 +60,41 @@ func (Scene) TableComment() string { return "新建项目时可选的场景" }
 
 // Task 任务是一条计划。
 type Task struct {
-	ID              uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
-	UserID          uint64          `gorm:"not null;index;comment:所属用户" json:"userId"`
-	ProjectID       uint64          `gorm:"not null;index;comment:所属项目" json:"projectId"`
-	Name            string          `gorm:"size:256;not null;default:'';comment:任务名称" json:"name"`
-	Overview        string          `gorm:"type:text;not null;comment:计划概览" json:"overview"`
-	Description     string          `gorm:"type:text;not null;comment:润色后的需求说明" json:"description"`
-	RawRequest      string          `gorm:"type:text;not null;comment:用户原始需求" json:"rawRequest"`
-	Status          string          `gorm:"size:32;not null;default:'pending';index;comment:任务状态。pending 待执行，running 执行中，wait_test 待测试，tested 测试完成，rerun 重新执行，failed 执行出错" json:"status"`
-	Mode            string          `gorm:"size:16;not null;default:'plan';comment:执行模式，固定 plan" json:"mode"`
-	Branch          string          `gorm:"size:256;not null;default:'';comment:任务分支" json:"branch"`
-	Worktree        string          `gorm:"size:1024;not null;default:'';comment:任务工作区路径" json:"worktree"`
-	MergedDev       bool            `gorm:"not null;default:false;comment:是否已合入 dev" json:"mergedDev"`
-	MergedMain      bool            `gorm:"not null;default:false;comment:是否已合入 main" json:"mergedMain"`
-	ClientID        string          `gorm:"size:128;not null;default:'';comment:执行该任务的桌面端" json:"clientId"`
-	CoderAgentID    string          `gorm:"size:64;not null;default:'';comment:开发智能体 id，由客户端传入" json:"coderAgentId"`
-	VerifierAgentID string          `gorm:"size:64;not null;default:'';comment:验收智能体 id，由客户端传入" json:"verifierAgentId"`
-	ReviewerAgentID string          `gorm:"size:64;not null;default:'';comment:复核智能体 id，由客户端传入" json:"reviewerAgentId"`
-	Retries         int             `gorm:"not null;default:0;comment:任务级回修次数汇总" json:"retries"`
-	Planned         bool            `gorm:"not null;default:false;comment:是否已拆解完成" json:"planned"`
-	ErrorKind       string          `gorm:"size:32;not null;default:'';comment:最近一次失败的阶段" json:"-"`
-	ErrorAgentID    string          `gorm:"size:64;not null;default:'';comment:最近一次失败的智能体" json:"-"`
-	ErrorMessage    string          `gorm:"type:text;not null;default:'';comment:最近一次失败原因" json:"-"`
-	ErrorAt         timex.LocalTime `gorm:"comment:最近一次失败时间" json:"-"`
-	CreatedAt       timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
-	UpdatedAt       timex.LocalTime `gorm:"comment:更新时间" json:"updatedAt"`
+	ID          uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
+	UserID      uint64          `gorm:"not null;index;comment:所属用户" json:"userId"`
+	ProjectID   uint64          `gorm:"not null;index;comment:所属项目" json:"projectId"`
+	Name        string          `gorm:"size:256;not null;default:'';comment:任务名称" json:"name"`
+	Overview    string          `gorm:"type:text;not null;comment:计划概览" json:"overview"`
+	Description string          `gorm:"type:text;not null;comment:润色后的需求说明" json:"description"`
+	RawRequest  string          `gorm:"type:text;not null;comment:用户原始需求" json:"rawRequest"`
+	CreatedAt   timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
+	UpdatedAt   timex.LocalTime `gorm:"comment:更新时间" json:"updatedAt"`
 }
 
 func (Task) TableName() string    { return "ade_tasks" }
 func (Task) TableComment() string { return "开发任务" }
 
+// TaskPlanOpen 待办都还没开始时，计划可以改。
+func TaskPlanOpen(todos []Todo) bool {
+	for _, td := range todos {
+		if td.Status != TodoStatusTodo {
+			return false
+		}
+	}
+	return true
+}
+
 // Todo 有序步骤。Agent 生成的不可改不可删。
 type Todo struct {
-	ID             uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
-	TaskID         uint64          `gorm:"not null;index;comment:所属任务" json:"taskId"`
-	Seq            int             `gorm:"not null;default:0;comment:顺序" json:"seq"`
-	Title          string          `gorm:"size:256;not null;comment:标题" json:"title"`
-	Detail         string          `gorm:"type:text;not null;comment:步骤说明" json:"detail"`
-	Acceptance     string          `gorm:"type:text;not null;comment:验收标准" json:"acceptance"`
-	DependsOn      string          `gorm:"size:256;not null;default:'';comment:依赖的其他待办" json:"dependsOn"`
-	Status         string          `gorm:"size:16;not null;default:'todo';comment:待办状态。todo 待办，doing 进行中，done 完成" json:"status"`
-	Source         string          `gorm:"size:16;not null;default:'agent';comment:来源。agent 智能体生成且不可改，user 用户追加" json:"source"`
-	ParentID       uint64          `gorm:"not null;default:0;index;comment:修复待办指向的原待办，0 表示本身是原待办" json:"parentId"`
-	Retry          int             `gorm:"not null;default:0;comment:原待办被回修的次数，最多 3 次" json:"retry"`
-	ConversationID uint64          `gorm:"not null;default:0;comment:执行该待办的会话，0 表示没有" json:"conversationId"`
-	CreatedAt      timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
-	UpdatedAt      timex.LocalTime `gorm:"comment:更新时间" json:"updatedAt"`
+	ID        uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
+	TaskID    uint64          `gorm:"not null;index;comment:所属任务" json:"taskId"`
+	Seq       int             `gorm:"not null;default:0;comment:顺序" json:"seq"`
+	Title     string          `gorm:"size:256;not null;comment:标题" json:"title"`
+	Detail    string          `gorm:"type:text;not null;comment:步骤说明" json:"detail"`
+	Status    string          `gorm:"size:16;not null;default:'todo';comment:待办状态。todo 待办，doing 进行中，done 完成" json:"status"`
+	Source    string          `gorm:"size:16;not null;default:'agent';comment:来源。agent 智能体生成且不可改，user 用户追加" json:"source"`
+	CreatedAt timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
+	UpdatedAt timex.LocalTime `gorm:"comment:更新时间" json:"updatedAt"`
 }
 
 func (Todo) TableName() string    { return "ade_todos" }

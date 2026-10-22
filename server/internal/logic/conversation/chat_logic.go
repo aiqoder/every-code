@@ -573,13 +573,12 @@ func (l *ChatLogic) buildChatToolkit(executorID uint64, executorClientID, worksp
 		}
 	}
 	dataTools := servertool.For(l.svcCtx.AdeRepo, servertool.Scope{
-		UserID:         executorID,
-		ClientID:       executorClientID,
-		ProjectID:      linkProjectID(conv),
-		TaskID:         linkTaskID(conv),
-		Channel:        linkChannel(conv),
-		ConversationID: linkConversationID(conv),
-		EnvCheck:       catalog.AgentID == agents.EnvCheckID,
+		UserID:    executorID,
+		ClientID:  executorClientID,
+		ProjectID: linkProjectID(conv),
+		TaskID:    linkTaskID(conv),
+		Channel:   linkChannel(conv),
+		EnvCheck:  catalog.AgentID == agents.EnvCheckID,
 	})
 	if len(records) == 0 && len(catalogTools) == 0 && len(dataTools) == 0 {
 		return &chatToolkit{}, nil
@@ -679,11 +678,4 @@ func linkChannel(c *model.Conversation) string {
 		return ""
 	}
 	return c.Link.Channel
-}
-
-func linkConversationID(c *model.Conversation) uint64 {
-	if c == nil {
-		return 0
-	}
-	return c.ID
 }

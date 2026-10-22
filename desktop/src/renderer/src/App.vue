@@ -3,6 +3,7 @@ import { onMounted, computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppRail from './components/AppRail.vue'
 import ShellPanel from './components/ShellPanel.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import ToastStack from './components/ToastStack.vue'
 import { bridge } from './api'
 import { useSessionStore } from './stores/session'
@@ -17,7 +18,6 @@ const menus: Array<{ id: string; label: string; path: string }> = [
   { id: 'project', label: '项目概况', path: '/project' },
   { id: 'create', label: '任务看板', path: '/create' },
   { id: 'execute', label: '执行', path: '/execute' },
-  { id: 'test', label: '测试', path: '/test' },
   { id: 'deploy', label: '部署', path: '/deploy' }
 ]
 
@@ -107,6 +107,7 @@ watch(
     </div>
     <RouterView v-else />
     <ToastStack />
+    <ConfirmDialog />
   </div>
 </template>
 

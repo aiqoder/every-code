@@ -27,6 +27,7 @@ type Service struct {
 
 	mu      sync.Mutex
 	running map[uint64]struct{} // taskId 正在跑的集合
+	queued  map[uint64]struct{} // 已点开始、桌面不在线时等下一轮再拉起
 	seq     map[uint64]int      // 每任务事件序号
 	skills  *SkillStore
 
@@ -41,6 +42,7 @@ func NewService(svcCtx *svc.ServiceContext, repo repository.AdeRepository, skill
 		repo:    repo,
 		bus:     NewEventBus(),
 		running: make(map[uint64]struct{}),
+		queued:  make(map[uint64]struct{}),
 		seq:     make(map[uint64]int),
 		skills:  NewSkillStore(skillRoot),
 		stopCh:  make(chan struct{}),
@@ -97,9 +99,6 @@ func (s *Service) CreateProject(ctx context.Context, userID uint64, name, descri
 			return nil, err
 		}
 		description = sc.Description
-	}
-	if description == "" {
-		return nil, fmt.Errorf("请选择场景")
 	}
 	techs := NormalizeTechs(technologies)
 	p := &model.Project{
@@ -200,7 +199,7 @@ func (s *Service) ToProjectVO(ctx context.Context, p *model.Project) *ProjectVO 
 	if err == nil {
 		vo.TaskCount = len(tasks)
 		for _, t := range tasks {
-			if t.Status == model.TaskStatusRunning || t.Status == model.TaskStatusRerun {
+			if s.isRunning(t.ID) {
 				vo.RunningTask = t.ID
 				break
 			}
@@ -228,14 +227,6 @@ func (s *Service) SaveEnvCheck(ctx context.Context, p *model.Project, items []En
 // 任务
 // ---------------------------------------------------------------------------
 
-// TaskError 最近一次失败的摘要，供界面直接展示失败原因。
-type TaskError struct {
-	Kind    string          `json:"kind"`
-	AgentID string          `json:"agentId"`
-	Message string          `json:"message"`
-	At      timex.LocalTime `json:"at"`
-}
-
 // TaskVO 任务对外视图，含待办。
 type TaskVO struct {
 	*model.Task
@@ -243,7 +234,6 @@ type TaskVO struct {
 	Todos       []model.Todo `json:"todos"`
 	DoneCount   int          `json:"doneCount"`
 	TotalCount  int          `json:"totalCount"`
-	LastError   *TaskError   `json:"lastError,omitempty"`
 }
 
 // ToTaskVO 组装任务视图。
@@ -259,33 +249,13 @@ func (s *Service) ToTaskVO(ctx context.Context, t *model.Task, projectName strin
 			}
 		}
 	}
-	vo.LastError = taskError(t)
 	return vo
-}
-
-// taskError 取任务上记下的失败原因。只有停在「执行出错」时才对外展示。
-func taskError(t *model.Task) *TaskError {
-	if t.Status != model.TaskStatusFailed {
-		return nil
-	}
-	msg := strings.TrimSpace(t.ErrorMessage)
-	if msg == "" {
-		return nil
-	}
-	return &TaskError{
-		Kind:    t.ErrorKind,
-		AgentID: t.ErrorAgentID,
-		Message: msg,
-		At:      t.ErrorAt,
-	}
 }
 
 // TaskTodoInput 对话里定好的一条待办。
 type TaskTodoInput struct {
-	Title      string `json:"title"`
-	Detail     string `json:"detail"`
-	Acceptance string `json:"acceptance"`
-	DependsOn  string `json:"dependsOn"`
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
 }
 
 // TaskPlanInput 对话里定好的计划。创建时一并落库，不再后台拆解。
@@ -296,8 +266,8 @@ type TaskPlanInput struct {
 	Todos    []TaskTodoInput
 }
 
-// CreateTask 保存对话里已经定好的计划，状态停在待执行。
-func (s *Service) CreateTask(ctx context.Context, userID uint64, projectID uint64, description, clientID string, plan TaskPlanInput) (*model.Task, error) {
+// CreateTask 保存对话里已经定好的计划。
+func (s *Service) CreateTask(ctx context.Context, userID uint64, projectID uint64, description string, plan TaskPlanInput) (*model.Task, error) {
 	description = strings.TrimSpace(description)
 	if description == "" {
 		return nil, fmt.Errorf("请填写任务描述")
@@ -322,24 +292,18 @@ func (s *Service) CreateTask(ctx context.Context, userID uint64, projectID uint6
 		Overview:    strings.TrimSpace(plan.Overview),
 		RawRequest:  description,
 		Description: strings.TrimSpace(plan.Plan),
-		Mode:        model.TaskModePlan,
-		Status:      model.TaskStatusPending,
-		Planned:     len(todos) > 0,
-		ClientID:    firstNonEmpty(clientID, p.ClientID),
 	}
 	if err := s.repo.CreateTask(ctx, t); err != nil {
 		return nil, err
 	}
 	for i, item := range todos {
 		td := &model.Todo{
-			TaskID:     t.ID,
-			Seq:        i + 1,
-			Title:      item.Title,
-			Detail:     item.Detail,
-			Acceptance: item.Acceptance,
-			DependsOn:  item.DependsOn,
-			Status:     model.TodoStatusTodo,
-			Source:     model.TodoSourceAgent,
+			TaskID: t.ID,
+			Seq:    i + 1,
+			Title:  item.Title,
+			Detail: item.Detail,
+			Status: model.TodoStatusTodo,
+			Source: model.TodoSourceAgent,
 		}
 		if err := s.repo.CreateTodo(ctx, td); err != nil {
 			return nil, err
@@ -350,8 +314,12 @@ func (s *Service) CreateTask(ctx context.Context, userID uint64, projectID uint6
 
 // ApplyTaskPlan 把智能体整理好的名称、概览、润色需求和待办写回已经存在的任务。
 func (s *Service) ApplyTaskPlan(ctx context.Context, t *model.Task, plan TaskPlanInput) error {
-	if t.Status != model.TaskStatusPending {
-		return fmt.Errorf("只有待执行的任务可以写入计划")
+	existing, err := s.repo.ListTodos(ctx, t.ID)
+	if err != nil {
+		return err
+	}
+	if !model.TaskPlanOpen(existing) {
+		return fmt.Errorf("任务已经开始，不能改计划")
 	}
 	name := strings.TrimSpace(plan.Name)
 	if name == "" {
@@ -371,15 +339,11 @@ func (s *Service) ApplyTaskPlan(ctx context.Context, t *model.Task, plan TaskPla
 	t.Name = name
 	t.Overview = strings.TrimSpace(plan.Overview)
 	t.Description = polished
-	t.Planned = true
-	t.Mode = model.TaskModePlan
 	rows := make([]*model.Todo, 0, len(todos))
 	for _, item := range todos {
 		rows = append(rows, &model.Todo{
-			Title:      item.Title,
-			Detail:     item.Detail,
-			Acceptance: item.Acceptance,
-			DependsOn:  item.DependsOn,
+			Title:  item.Title,
+			Detail: item.Detail,
 		})
 	}
 	return s.repo.SaveTaskPlan(ctx, t, rows)
@@ -394,8 +358,6 @@ func cleanPlanTodos(items []TaskTodoInput) []TaskTodoInput {
 		}
 		item.Title = title
 		item.Detail = strings.TrimSpace(item.Detail)
-		item.Acceptance = strings.TrimSpace(item.Acceptance)
-		item.DependsOn = strings.TrimSpace(item.DependsOn)
 		todos = append(todos, item)
 	}
 	return todos
@@ -408,12 +370,11 @@ func (s *Service) UpdateDescription(ctx context.Context, t *model.Task, descript
 		return fmt.Errorf("需求描述不能为空")
 	}
 	t.RawRequest = description
-	t.Mode = model.TaskModePlan
 	return s.repo.UpdateTask(ctx, t)
 }
 
 // AddUserTodo 用户可以追加待办。
-func (s *Service) AddUserTodo(ctx context.Context, taskID uint64, title, detail, acceptance, dependsOn string) (*model.Todo, error) {
+func (s *Service) AddUserTodo(ctx context.Context, taskID uint64, title, detail string) (*model.Todo, error) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return nil, fmt.Errorf("待办标题不能为空")
@@ -421,14 +382,12 @@ func (s *Service) AddUserTodo(ctx context.Context, taskID uint64, title, detail,
 	existing, _ := s.repo.ListTodos(ctx, taskID)
 	seq := len(existing) + 1
 	td := &model.Todo{
-		TaskID:     taskID,
-		Seq:        seq,
-		Title:      title,
-		Detail:     strings.TrimSpace(detail),
-		Acceptance: strings.TrimSpace(acceptance),
-		DependsOn:  strings.TrimSpace(dependsOn),
-		Status:     model.TodoStatusTodo,
-		Source:     model.TodoSourceUser,
+		TaskID: taskID,
+		Seq:    seq,
+		Title:  title,
+		Detail: strings.TrimSpace(detail),
+		Status: model.TodoStatusTodo,
+		Source: model.TodoSourceUser,
 	}
 	if err := s.repo.CreateTodo(ctx, td); err != nil {
 		return nil, err
@@ -437,7 +396,7 @@ func (s *Service) AddUserTodo(ctx context.Context, taskID uint64, title, detail,
 }
 
 // UpdateUserTodo 只允许改用户自己加的待办。
-func (s *Service) UpdateUserTodo(ctx context.Context, td *model.Todo, title, detail, acceptance, status string) error {
+func (s *Service) UpdateUserTodo(ctx context.Context, td *model.Todo, title, detail, status string) error {
 	if td.Source != model.TodoSourceUser {
 		return fmt.Errorf("Agent 生成的待办不可修改")
 	}
@@ -445,7 +404,6 @@ func (s *Service) UpdateUserTodo(ctx context.Context, td *model.Todo, title, det
 		td.Title = v
 	}
 	td.Detail = strings.TrimSpace(detail)
-	td.Acceptance = strings.TrimSpace(acceptance)
 	if status != "" {
 		td.Status = status
 	}
@@ -461,67 +419,50 @@ func (s *Service) DeleteUserTodo(ctx context.Context, td *model.Todo) error {
 	return s.repo.DeleteTodo(ctx, td.ID)
 }
 
-// PipelineAgents 一条任务流水线要用的智能体，id 都由客户端传入。
-type PipelineAgents struct {
-	Coder    string
-	Verifier string
-	Reviewer string
+// DeleteTask 删除整条任务。正在执行时拒绝，避免后台还在往已删除的任务写结果。
+func (s *Service) DeleteTask(ctx context.Context, t *model.Task) error {
+	if s.isRunning(t.ID) {
+		return fmt.Errorf("任务正在执行，不能删除")
+	}
+	s.forgetQueued(t.ID)
+	return s.repo.DeleteTask(ctx, t.ID)
 }
 
-func applyPipelineAgents(t *model.Task, in PipelineAgents) error {
-	coder, err := AgentByID(in.Coder)
+// StartTask 人点「开始执行」。还有未完成待办时交给调度器。
+func (s *Service) StartTask(ctx context.Context, t *model.Task) error {
+	todos, err := s.repo.ListTodos(ctx, t.ID)
 	if err != nil {
 		return err
 	}
-	verifier, err := AgentByID(in.Verifier)
-	if err != nil {
-		return err
-	}
-	reviewer, err := AgentByID(in.Reviewer)
-	if err != nil {
-		return err
-	}
-	t.CoderAgentID = coder.ID
-	t.VerifierAgentID = verifier.ID
-	t.ReviewerAgentID = reviewer.ID
-	return nil
-}
-
-// StartTask 人点「开始执行」：待执行 / 执行出错 → 执行中，交给调度器。
-func (s *Service) StartTask(ctx context.Context, t *model.Task, agents PipelineAgents) error {
-	if err := applyPipelineAgents(t, agents); err != nil {
-		return err
-	}
-	if !t.Planned {
+	if len(todos) == 0 {
 		return fmt.Errorf("任务尚未拆解完成")
 	}
-	if t.Status == model.TaskStatusRunning || s.isRunning(t.ID) {
-		return fmt.Errorf("任务正在执行")
+	if !hasOpenTodo(todos) {
+		return fmt.Errorf("待办已完成")
 	}
-	if t.Status == model.TaskStatusWaitTest || t.Status == model.TaskStatusTested {
-		return fmt.Errorf("任务已进入测试阶段")
+	if s.isRunning(t.ID) {
+		return fmt.Errorf("任务正在执行")
 	}
 	if busyID, err := s.projectActiveDevelopID(ctx, t.ProjectID, t.ID); err != nil {
 		return err
 	} else if busyID > 0 {
 		return fmt.Errorf("同项目任务 #%d 正在开发，同一时间只能跑一条", busyID)
 	}
-	from := t.Status
-	ok, err := s.repo.ClaimTask(ctx, t.ID, from)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return fmt.Errorf("任务状态已变化，请刷新后重试")
-	}
-	t.Status = model.TaskStatusRunning
-	t.UpdatedAt = timex.LocalTime(time.Now())
-	_ = s.repo.UpdateTask(ctx, t)
+	s.markQueued(t.ID)
 	s.dispatch(t.ID)
 	return nil
 }
 
-// projectActiveDevelopID 同项目是否已有执行中/重新执行的任务（不含 excludeID）。
+func hasOpenTodo(todos []model.Todo) bool {
+	for _, td := range todos {
+		if td.Status != model.TodoStatusDone {
+			return true
+		}
+	}
+	return false
+}
+
+// projectActiveDevelopID 同项目是否已有正在执行的任务（不含 excludeID）。
 func (s *Service) projectActiveDevelopID(ctx context.Context, projectID, excludeID uint64) (uint64, error) {
 	if projectID == 0 {
 		return 0, nil
@@ -534,9 +475,6 @@ func (s *Service) projectActiveDevelopID(ctx context.Context, projectID, exclude
 		if other.ID == excludeID {
 			continue
 		}
-		if other.Status == model.TaskStatusRunning || other.Status == model.TaskStatusRerun {
-			return other.ID, nil
-		}
 		if s.isRunning(other.ID) {
 			return other.ID, nil
 		}
@@ -544,26 +482,9 @@ func (s *Service) projectActiveDevelopID(ctx context.Context, projectID, exclude
 	return 0, nil
 }
 
-// RetryTask 执行出错后由人改回重新执行。
-func (s *Service) RetryTask(ctx context.Context, t *model.Task, agents PipelineAgents) error {
-	if err := applyPipelineAgents(t, agents); err != nil {
-		return err
-	}
-	if t.Status != model.TaskStatusFailed {
-		return fmt.Errorf("只有执行出错的任务可以重新执行")
-	}
-	if busyID, err := s.projectActiveDevelopID(ctx, t.ProjectID, t.ID); err != nil {
-		return err
-	} else if busyID > 0 {
-		return fmt.Errorf("同项目任务 #%d 正在开发，同一时间只能跑一条", busyID)
-	}
-	t.Status = model.TaskStatusRerun
-	t.UpdatedAt = timex.LocalTime(time.Now())
-	if err := s.repo.UpdateTask(ctx, t); err != nil {
-		return err
-	}
-	s.dispatch(t.ID)
-	return nil
+// RetryTask 继续执行还有未完成待办的任务。
+func (s *Service) RetryTask(ctx context.Context, t *model.Task) error {
+	return s.StartTask(ctx, t)
 }
 
 func (s *Service) isRunning(taskID uint64) bool {
@@ -571,6 +492,28 @@ func (s *Service) isRunning(taskID uint64) bool {
 	defer s.mu.Unlock()
 	_, ok := s.running[taskID]
 	return ok
+}
+
+func (s *Service) markQueued(taskID uint64) {
+	s.mu.Lock()
+	s.queued[taskID] = struct{}{}
+	s.mu.Unlock()
+}
+
+func (s *Service) forgetQueued(taskID uint64) {
+	s.mu.Lock()
+	delete(s.queued, taskID)
+	s.mu.Unlock()
+}
+
+func (s *Service) queuedIDs() []uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids := make([]uint64, 0, len(s.queued))
+	for id := range s.queued {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 // dispatch 启动一个后台协程跑任务，避免重复进入。同项目已有本进程在跑的任务则跳过。
@@ -681,8 +624,6 @@ func (s *Service) resolveModel(ctx context.Context, p *model.Project) (*model.Ll
 // channelForRunKind 把运行类型映射到工位通道，便于会话挂到对应任务。
 func channelForRunKind(kind string) string {
 	switch kind {
-	case model.RunKindVerifier, model.RunKindReviewer:
-		return model.ChannelTest
 	case model.RunKindDeploy, model.RunKindInstaller:
 		return model.ChannelDeploy
 	case model.RunKindPlanner:
@@ -699,10 +640,7 @@ func (s *Service) runAgent(ctx context.Context, t *model.Task, p *model.Project,
 	if err != nil {
 		return "", err
 	}
-	clientID := strings.TrimSpace(t.ClientID)
-	if clientID == "" {
-		clientID = strings.TrimSpace(p.ClientID)
-	}
+	clientID := strings.TrimSpace(p.ClientID)
 	if clientID == "" {
 		return "", fmt.Errorf("没有可下发的客户端")
 	}
@@ -769,6 +707,3 @@ var (
 	_ = common.NormalizePage
 	_ = clienthub.AllowedRPC
 )
-
-// nowTime 统一取当前时间，便于测试替换。
-func nowTime() time.Time { return time.Now() }

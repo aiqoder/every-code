@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AskQuestionPanel from '../../../components/AskQuestionPanel.vue'
 import ChatTimeline from '../../../components/ChatTimeline.vue'
+import IconHistory from '../../../components/icons/IconHistory.vue'
+import IconNewChat from '../../../components/icons/IconNewChat.vue'
 import TextArea from '../../../components/TextArea.vue'
 import TodoFloat from '../../../components/TodoFloat.vue'
 import { llmApi, type LlmModelRow } from '../../../api'
@@ -168,20 +170,18 @@ defineExpose<TaskChatHandle>({ state, send, fresh })
 <template>
   <section class="chat rail">
     <header class="chat-head">
-      <div class="col">
-        <span class="eyebrow">{{ agentName }}</span>
-        <span class="title">会话</span>
-      </div>
       <div class="head-actions">
         <div ref="historyWrap" class="history-pick" :class="{ open: historyOpen }">
           <button
             type="button"
-            class="btn ghost sm"
+            class="btn ghost sm icon"
             :disabled="!state.projectId || !state.taskId"
+            aria-label="历史"
+            title="历史"
             :aria-expanded="historyOpen"
             @click="toggleHistory"
           >
-            历史
+            <IconHistory />
           </button>
           <div v-if="historyOpen" class="history-pop" role="listbox" aria-label="历史会话">
             <p v-if="!history.length" class="history-empty">还没有会话</p>
@@ -200,11 +200,13 @@ defineExpose<TaskChatHandle>({ state, send, fresh })
           </div>
         </div>
         <button
-          class="btn ghost sm"
+          class="btn ghost sm icon"
           :disabled="!state.projectId || !state.taskId || state.streaming"
+          aria-label="新对话"
+          title="新对话"
           @click="startFresh"
         >
-          新对话
+          <IconNewChat />
         </button>
       </div>
     </header>
@@ -299,25 +301,20 @@ defineExpose<TaskChatHandle>({ state, send, fresh })
   z-index: 3;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   padding: 14px 14px 10px;
   border-bottom: 1px solid var(--line-soft);
-}
-.eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  color: var(--brass-dim);
-}
-.title {
-  font-size: 13px;
-  color: var(--text-strong);
 }
 .head-actions {
   display: flex;
   align-items: center;
   gap: 6px;
   flex: none;
+}
+.head-actions .btn.icon svg {
+  width: 15px;
+  height: 15px;
 }
 .history-pick {
   position: relative;

@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { bridge, setHttpSession } from '../../api'
 import { useSessionStore, messageOf } from '../../stores/session'
+import { confirm } from '../../composables/confirm'
 import { toast } from '../../composables/toast'
 import EmptyState from '../../components/EmptyState.vue'
 import FormField from '../../components/FormField.vue'
@@ -82,7 +83,12 @@ async function reconnect(): Promise<void> {
 }
 
 async function logout(): Promise<void> {
-  if (!window.confirm('退出登录？本机终端会被关闭，服务端数据保留。')) return
+  const ok = await confirm({
+    title: '退出登录',
+    message: '本机终端会被关闭，服务端数据保留。',
+    confirmText: '退出'
+  })
+  if (!ok) return
   await session.logout()
   toast.show('已退出登录')
   router.replace('/login')

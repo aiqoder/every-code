@@ -1,7 +1,6 @@
 import { reactive } from 'vue'
 import { adeApi } from '../api'
 import { messageOf, useSessionStore } from '../stores/session'
-import { useShellStore } from '../stores/shell'
 import type { PendingAskQuestion, Task } from '../../../shared/types'
 import { asNumber, asText, briefTask, briefTodo } from './format'
 import { fail, ok, params, type ActionResult, type PageSurface } from './types'
@@ -32,9 +31,6 @@ export async function startCurrentTask(): Promise<ActionResult> {
     const updated = await adeApi.startTask(task.id)
     useSessionStore().upsertTask(updated)
     taskPage.task = updated
-    if (updated.worktree) {
-      await useShellStore().openTask(updated.id, updated.name, updated.worktree)
-    }
     return ok(`已开始执行任务 #${updated.id}`, '已开始执行')
   } catch (err) {
     return fail(messageOf(err))
@@ -52,7 +48,7 @@ export async function retryCurrentTask(): Promise<ActionResult> {
     const updated = await adeApi.retryTask(task.id)
     useSessionStore().upsertTask(updated)
     taskPage.task = updated
-    return ok(`任务 #${updated.id} 已改回重新执行`, '已改回重新执行', 'plain')
+    return ok(`任务 #${updated.id} 已继续执行`, '已继续执行')
   } catch (err) {
     return fail(messageOf(err))
   } finally {
@@ -64,7 +60,7 @@ export async function saveTaskPlan(input: {
   name: string
   overview: string
   plan: string
-  todos: Array<{ title: string; detail?: string; acceptance?: string; dependsOn?: string }>
+  todos: Array<{ title: string; detail?: string }>
 }): Promise<ActionResult> {
   const task = current()
   if (!task) return fail('任务还没加载')
@@ -72,9 +68,7 @@ export async function saveTaskPlan(input: {
   const todos = input.todos
     .map((item) => ({
       title: item.title.trim(),
-      detail: item.detail?.trim() ?? '',
-      acceptance: item.acceptance?.trim() ?? '',
-      dependsOn: item.dependsOn?.trim() ?? ''
+      detail: item.detail?.trim() ?? ''
     }))
     .filter((item) => item.title)
   if (!name) return fail('请填写任务名称')
@@ -118,8 +112,6 @@ export async function updateTaskDescription(description: string): Promise<Action
 export async function addTaskTodo(input: {
   title: string
   detail?: string
-  acceptance?: string
-  dependsOn?: string
 }): Promise<ActionResult> {
   const task = current()
   if (!task) return fail('任务还没加载')
@@ -129,9 +121,7 @@ export async function addTaskTodo(input: {
   try {
     await adeApi.addTodo(task.id, {
       title,
-      detail: input.detail?.trim() ?? '',
-      acceptance: input.acceptance?.trim() ?? '',
-      dependsOn: input.dependsOn?.trim() ?? ''
+      detail: input.detail?.trim() ?? ''
     })
     await reload(task.id)
     return ok(`已添加待办「${title}」`, '已添加待办')
@@ -186,7 +176,7 @@ export async function answerTaskQuestion(payload: {
   }
 }
 
-function asPlanTodos(value: unknown): Array<{ title: string; detail?: string; acceptance?: string; dependsOn?: string }> {
+function asPlanTodos(value: unknown): Array<{ title: string; detail?: string }> {
   if (!Array.isArray(value)) return []
   return value.flatMap((item) => {
     if (!item || typeof item !== 'object') return []
@@ -194,20 +184,10 @@ function asPlanTodos(value: unknown): Array<{ title: string; detail?: string; ac
     return [
       {
         title: asText(row.title),
-        detail: asText(row.detail),
-        acceptance: asText(row.acceptance),
-        dependsOn: asText(row.dependsOn)
+        detail: asText(row.detail)
       }
     ]
   })
-}
-
-export async function focusTaskTerminal(): Promise<ActionResult> {
-  const task = current()
-  if (!task) return fail('任务还没加载')
-  if (!task.worktree) return fail('这条任务还没有 worktree')
-  await useShellStore().openTask(task.id, task.name, task.worktree)
-  return ok(`已聚焦终端：${task.worktree}`)
 }
 
 export const taskSurface: PageSurface = {
@@ -243,7 +223,7 @@ export const taskSurface: PageSurface = {
     },
     {
       name: 'retry',
-      description: '把当前任务改回重新执行。',
+      description: '继续执行当前任务里还没完成的待办。',
       parameters: params({}),
       run: () => retryCurrentTask()
     },
@@ -267,9 +247,7 @@ export const taskSurface: PageSurface = {
               required: ['title'],
               properties: {
                 title: { type: 'string' },
-                detail: { type: 'string' },
-                acceptance: { type: 'string' },
-                dependsOn: { type: 'string' }
+                detail: { type: 'string' }
               }
             }
           }
@@ -295,18 +273,14 @@ export const taskSurface: PageSurface = {
       parameters: params(
         {
           title: { type: 'string' },
-          detail: { type: 'string' },
-          acceptance: { type: 'string' },
-          dependsOn: { type: 'string' }
+          detail: { type: 'string' }
         },
         ['title']
       ),
       run: (args) =>
         addTaskTodo({
           title: asText(args.title),
-          detail: asText(args.detail),
-          acceptance: asText(args.acceptance),
-          dependsOn: asText(args.dependsOn)
+          detail: asText(args.detail)
         })
     },
     {
@@ -367,11 +341,5 @@ export const taskSurface: PageSurface = {
         })
       }
     },
-    {
-      name: 'focus_terminal',
-      description: '聚焦当前任务的终端。',
-      parameters: params({}),
-      run: () => focusTaskTerminal()
-    }
   ]
 }

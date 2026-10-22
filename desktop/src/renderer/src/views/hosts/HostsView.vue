@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { adeApi, bridge } from '../../api'
 import { useSessionStore, messageOf } from '../../stores/session'
 import { useShellStore } from '../../stores/shell'
+import { confirm } from '../../composables/confirm'
 import { toast } from '../../composables/toast'
 import Dialog from '../../components/Dialog.vue'
 import FormField from '../../components/FormField.vue'
@@ -86,7 +87,13 @@ async function saveHost(): Promise<void> {
 }
 
 async function removeHost(host: DeployHost): Promise<void> {
-  if (!window.confirm(`删除主机「${host.name}」？本机私钥保留。`)) return
+  const ok = await confirm({
+    title: '删除主机',
+    message: `删除「${host.name}」后，本机私钥保留。`,
+    confirmText: '删除',
+    danger: true
+  })
+  if (!ok) return
   try {
     await adeApi.deleteHost(host.id)
     session.hosts = session.hosts.filter((h) => h.id !== host.id)

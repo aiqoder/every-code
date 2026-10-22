@@ -84,10 +84,5 @@ func (l *CreateConversationLogic) CreateConversation(req *types.CreateConversati
 	if err := l.svcCtx.ConversationRepo.Create(l.ctx, c); err != nil {
 		return nil, err
 	}
-	// clientId 只写在会话表；挂到任务时再回填，供后续执行下发。
-	if task != nil && clientID != "" && strings.TrimSpace(task.ClientID) == "" {
-		task.ClientID = clientID
-		_ = l.svcCtx.AdeRepo.UpdateTask(l.ctx, task)
-	}
 	return common.ToConversationVO(c, m), nil
 }

@@ -84,6 +84,12 @@ func New(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 		if err = migrateConversationLinks(db); err != nil {
 			return nil, err
 		}
+		if err = migrateDropObsoleteTaskColumns(db); err != nil {
+			return nil, err
+		}
+		if err = migrateDropObsoleteTodoColumns(db); err != nil {
+			return nil, err
+		}
 		if err = ensureBuiltinTools(db); err != nil {
 			return nil, err
 		}

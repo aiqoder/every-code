@@ -4,6 +4,7 @@ import { adeApi } from '../../api'
 import { useSessionStore, messageOf } from '../../stores/session'
 import DeployChat from './components/DeployChat.vue'
 import type { DeployChatHandle } from './components/deployChat'
+import { confirm } from '../../composables/confirm'
 import { toast } from '../../composables/toast'
 import { usePageSurface } from '../../surfaces/host'
 import { deployPage, deploySurface } from '../../surfaces/deploy'
@@ -91,7 +92,13 @@ async function save(): Promise<void> {
 }
 
 async function remove(task: DeployTask): Promise<void> {
-  if (!window.confirm(`删除部署任务「${task.title}」？`)) return
+  const ok = await confirm({
+    title: '删除部署任务',
+    message: `确定删除「${task.title}」？`,
+    confirmText: '删除',
+    danger: true
+  })
+  if (!ok) return
   try {
     await adeApi.deleteDeployTask(task.id)
     deployPage.tasks = deployPage.tasks.filter((item) => item.id !== task.id)

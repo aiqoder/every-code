@@ -9,7 +9,6 @@ import Dialog from '../../components/Dialog.vue'
 import FormField from '../../components/FormField.vue'
 import TextArea from '../../components/TextArea.vue'
 import EmptyState from '../../components/EmptyState.vue'
-import StatusPill from '../../components/StatusPill.vue'
 import type { Task } from '../../../../shared/types'
 import { clickOnSelection } from '../../utils/selection'
 import { taskDisplayName } from '../../utils/taskTitle'
@@ -111,14 +110,13 @@ function progressOf(task: { doneCount: number; totalCount: number }): number {
           <button v-for="task in projectTasks" :key="task.id" class="task-card" @click="openTask(task, $event)">
             <div class="tc-head">
               <span class="tc-name serif ellipsis">{{ taskDisplayName(task) }}</span>
-              <StatusPill :status="task.status" size="sm" />
-            </div>
-            <p class="tc-overview">{{ task.overview || task.rawRequest }}</p>
-            <div class="tc-foot">
               <span class="tc-progress">
                 <span class="bar"><span class="fill" :style="{ width: progressOf(task) + '%' }" /></span>
                 {{ task.doneCount }}/{{ task.totalCount || '—' }}
               </span>
+            </div>
+            <p class="tc-overview">{{ task.overview || task.rawRequest }}</p>
+            <div class="tc-foot">
               <span class="tc-time">{{ task.updatedAt }}</span>
             </div>
           </button>
@@ -268,7 +266,10 @@ h1 {
   display: flex;
   align-items: center;
   gap: 7px;
+  flex: none;
   font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
 }
 .bar {
   width: 62px;

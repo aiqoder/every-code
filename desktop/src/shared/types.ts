@@ -1,25 +1,5 @@
 // 渲染进程与主进程共用的类型。不要在这里 import 任何运行时依赖。
 
-export type TaskStatus = 'pending' | 'running' | 'wait_test' | 'tested' | 'rerun' | 'failed'
-
-export const TASK_STATUS_META: Record<TaskStatus, { label: string; hint: string; tone: string }> = {
-  pending: { label: '待执行', hint: '计划已就绪，等待开始', tone: 'muted' },
-  running: { label: '执行中', hint: 'Agent 正在开发', tone: 'brass' },
-  wait_test: { label: '待测试', hint: '开发完成，等待验收', tone: 'amber' },
-  tested: { label: '测试完成', hint: '已合入 dev 并复核', tone: 'moss' },
-  rerun: { label: '重新执行', hint: '验收未过，回到开发', tone: 'clay' },
-  failed: { label: '执行出错', hint: '需要人工介入', tone: 'rust' }
-}
-
-export const STATUS_ORDER: TaskStatus[] = [
-  'pending',
-  'running',
-  'wait_test',
-  'tested',
-  'rerun',
-  'failed'
-]
-
 export interface EnvCheckItem {
   tech: string
   label: string
@@ -62,12 +42,8 @@ export interface Todo {
   seq: number
   title: string
   detail: string
-  acceptance: string
-  dependsOn: string
   status: 'todo' | 'doing' | 'done'
   source: 'agent' | 'user'
-  parentId: number
-  retry: number
   createdAt: string
   updatedAt: string
 }
@@ -96,13 +72,6 @@ export interface PendingAskQuestion {
   error?: string
 }
 
-export interface TaskError {
-  kind: string
-  agentId: string
-  message: string
-  at: string
-}
-
 export interface Task {
   id: number
   userId: number
@@ -111,25 +80,12 @@ export interface Task {
   overview: string
   description: string
   rawRequest: string
-  status: TaskStatus
-  mode: string
-  branch: string
-  worktree: string
-  mergedDev: boolean
-  mergedMain: boolean
-  clientId: string
-  coderAgentId: string
-  verifierAgentId: string
-  reviewerAgentId: string
-  retries: number
-  planned: boolean
   createdAt: string
   updatedAt: string
   projectName: string
   todos: Todo[]
   doneCount: number
   totalCount: number
-  lastError?: TaskError | null
 }
 
 export interface TaskEvent {

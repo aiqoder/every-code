@@ -1,5 +1,5 @@
 // Package agents 是智能体的固定定义。
-// 工位四条、拆解、复核、环境检测各有一个目录，目录里只有 AGENT.md：YAML 头加系统提示词。
+// 工位三条、拆解、复核、环境检测各有一个目录，目录里只有 AGENT.md：YAML 头加系统提示词。
 // 这些文件随程序编译，不再写入数据库。
 package agents
 
@@ -78,7 +78,7 @@ func init() {
 	}
 }
 
-// All 按创建、执行、测试、部署的固定顺序返回。
+// All 按创建、执行、部署的固定顺序返回。
 func All() []Agent {
 	out := make([]Agent, len(all))
 	copy(out, all)

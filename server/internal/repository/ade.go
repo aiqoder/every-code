@@ -19,11 +19,9 @@ type AdeRepository interface {
 
 	CreateTask(ctx context.Context, t *model.Task) error
 	UpdateTask(ctx context.Context, t *model.Task) error
+	DeleteTask(ctx context.Context, id uint64) error
 	GetTask(ctx context.Context, id uint64) (*model.Task, error)
 	ListTasksByProject(ctx context.Context, projectID uint64) ([]model.Task, error)
-	ListTasksByStatus(ctx context.Context, statuses ...string) ([]model.Task, error)
-	// ClaimTask 原子地领取执行中 / 重新执行的任务，避免同一任务被两次调度。
-	ClaimTask(ctx context.Context, id uint64, from string) (bool, error)
 
 	CreateTodo(ctx context.Context, t *model.Todo) error
 	// SaveTaskPlan 保存任务计划，并替换这条任务上智能体生成的待办。用户自己加的待办留着。
@@ -131,6 +129,36 @@ func (r *adeRepository) UpdateTask(ctx context.Context, t *model.Task) error {
 	return nil
 }
 
+// DeleteTask 删除任务，以及它的待办和挂在这条任务上的会话。
+func (r *adeRepository) DeleteTask(ctx context.Context, id uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var convIDs []uint64
+		if err := tx.Model(&model.ConversationLink{}).
+			Where("task_id = ?", id).
+			Pluck("conversation_id", &convIDs).Error; err != nil {
+			return fmt.Errorf("list task conversations: %w", err)
+		}
+		if len(convIDs) > 0 {
+			if err := tx.Where("conversation_id IN ?", convIDs).Delete(&model.Message{}).Error; err != nil {
+				return fmt.Errorf("delete task messages: %w", err)
+			}
+			if err := tx.Where("conversation_id IN ?", convIDs).Delete(&model.ConversationLink{}).Error; err != nil {
+				return fmt.Errorf("delete task conversation links: %w", err)
+			}
+			if err := tx.Where("id IN ?", convIDs).Delete(&model.Conversation{}).Error; err != nil {
+				return fmt.Errorf("delete task conversations: %w", err)
+			}
+		}
+		if err := tx.Where("task_id = ?", id).Delete(&model.Todo{}).Error; err != nil {
+			return fmt.Errorf("delete task todos: %w", err)
+		}
+		if err := tx.Delete(&model.Task{}, id).Error; err != nil {
+			return fmt.Errorf("delete task: %w", err)
+		}
+		return nil
+	})
+}
+
 func (r *adeRepository) GetTask(ctx context.Context, id uint64) (*model.Task, error) {
 	var t model.Task
 	if err := r.db.WithContext(ctx).First(&t, id).Error; err != nil {
@@ -147,26 +175,6 @@ func (r *adeRepository) ListTasksByProject(ctx context.Context, projectID uint64
 		return nil, fmt.Errorf("list tasks: %w", err)
 	}
 	return list, nil
-}
-
-func (r *adeRepository) ListTasksByStatus(ctx context.Context, statuses ...string) ([]model.Task, error) {
-	var list []model.Task
-	if err := r.db.WithContext(ctx).
-		Where("status IN ?", statuses).
-		Order("id asc").Find(&list).Error; err != nil {
-		return nil, fmt.Errorf("list tasks by status: %w", err)
-	}
-	return list, nil
-}
-
-func (r *adeRepository) ClaimTask(ctx context.Context, id uint64, from string) (bool, error) {
-	res := r.db.WithContext(ctx).Model(&model.Task{}).
-		Where("id = ? AND status = ?", id, from).
-		Update("status", model.TaskStatusRunning)
-	if res.Error != nil {
-		return false, fmt.Errorf("claim task: %w", res.Error)
-	}
-	return res.RowsAffected > 0, nil
 }
 
 func (r *adeRepository) CreateTodo(ctx context.Context, t *model.Todo) error {

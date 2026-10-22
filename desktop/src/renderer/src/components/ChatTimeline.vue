@@ -109,21 +109,39 @@ function hasReply(line: ChannelLine): boolean {
 function showAssistant(line: ChannelLine): boolean {
   return showReasoning(line) || hasReply(line)
 }
+
+function speakerLabel(index: number): string {
+  const row = rows.value[index]
+  if (!row || row.type !== 'leaf') return ''
+  if (row.item.role === 'user') return '你'
+  if (row.item.role === 'assistant') return showAssistant(row.item) ? props.agentName : ''
+  return '提示'
+}
+
+/** 工具调用会把同一次回复拆开，同一发言人只标第一次。 */
+function showSpeaker(index: number): boolean {
+  const name = speakerLabel(index)
+  if (!name) return false
+  for (let i = index - 1; i >= 0; i--) {
+    const prev = speakerLabel(i)
+    if (!prev) continue
+    return prev !== name
+  }
+  return true
+}
 </script>
 
 <template>
   <div ref="threadEl" class="thread" @scroll="onThreadScroll" @wheel="onWheel">
     <slot v-if="!lines.length" name="empty" />
-    <template v-for="row in rows" :key="row.key">
+    <template v-for="(row, index) in rows" :key="row.key">
       <DefaultToolGroup v-if="row.type === 'tools'" :items="row.items" />
       <article
         v-else-if="row.item.role !== 'assistant' || showAssistant(row.item)"
         class="line"
         :class="row.item.role"
       >
-        <span class="who">{{
-          row.item.role === 'user' ? '你' : row.item.role === 'assistant' ? agentName : '提示'
-        }}</span>
+        <span v-if="showSpeaker(index)" class="who">{{ speakerLabel(index) }}</span>
         <template v-if="row.item.role === 'assistant'">
           <ReasoningBlock
             v-if="showReasoning(row.item)"

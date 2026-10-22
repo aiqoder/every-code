@@ -4,7 +4,6 @@ import LoginView from './views/login/LoginView.vue'
 import ProjectView from './views/project/ProjectView.vue'
 import CreateView from './views/create/CreateView.vue'
 import ExecuteView from './views/execute/ExecuteView.vue'
-import TestView from './views/test/TestView.vue'
 import DeployView from './views/deploy/DeployView.vue'
 import TaskPlanView from './views/taskplan/TaskPlanView.vue'
 import SettingsView from './views/settings/SettingsView.vue'
@@ -19,7 +18,6 @@ export const router = createRouter({
     { path: '/project', component: ProjectView },
     { path: '/create', component: CreateView },
     { path: '/execute', component: ExecuteView },
-    { path: '/test', component: TestView },
     { path: '/deploy', component: DeployView },
     { path: '/tasks/:id', component: TaskPlanView },
     { path: '/models', component: ModelsView },
@@ -54,7 +52,6 @@ router.afterEach((to) => {
     '/project': '项目概况',
     '/create': '任务',
     '/execute': '执行',
-    '/test': '测试',
     '/deploy': '部署',
     '/models': '模型',
     '/hosts': '主机',

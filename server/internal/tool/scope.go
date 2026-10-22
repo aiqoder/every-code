@@ -34,13 +34,11 @@ type Scope struct {
 	ProjectID uint64
 	TaskID    uint64
 	Channel   string
-	// ConversationID 是当前会话。执行工位用它记下是哪次对话完成了待办。
-	ConversationID uint64
 	// EnvCheck 为真时只挂环境检测工具。任务规划不带这些工具。
 	EnvCheck bool
 }
 
-// For 返回这次对话应带上的服务端工具。创建工位改计划和任务，执行工位读计划、记下 worktree，并自行把做完的待办标完成。测试工位只读上下文。
+// For 返回这次对话应带上的服务端工具。创建工位改计划和任务，执行工位读计划、切换本轮工作目录，并自行把做完的待办标完成。
 func For(repo repository.AdeRepository, scope Scope) []agentloop.Tool {
 	if repo == nil || scope.UserID == 0 || scope.ProjectID == 0 {
 		return nil
@@ -51,16 +49,7 @@ func For(repo repository.AdeRepository, scope Scope) []agentloop.Tool {
 			&saveEnvCheckTool{repo: repo, scope: scope},
 		}
 	}
-	// 测试工位只读计划和待办，用来核对交付。改文件和标完成留在执行工位。
-	if strings.TrimSpace(scope.Channel) == model.ChannelTest {
-		if scope.TaskID == 0 {
-			return nil
-		}
-		return []agentloop.Tool{
-			&readContextTool{repo: repo, scope: scope},
-		}
-	}
-	// 执行工位读取计划、记下 worktree，并用 complete_todo 把做完的待办写回。建目录交给客户端 shell。
+	// 执行工位读取计划、把本轮工作目录切到 worktree，并用 complete_todo 把做完的待办写回。建目录交给客户端 shell。
 	if strings.TrimSpace(scope.Channel) == model.ChannelExecute {
 		if scope.TaskID == 0 {
 			return nil

@@ -10,10 +10,8 @@ import (
 )
 
 type planTodo struct {
-	Title      string `json:"title"`
-	Detail     string `json:"detail"`
-	Acceptance string `json:"acceptance"`
-	DependsOn  string `json:"dependsOn"`
+	Title  string `json:"title"`
+	Detail string `json:"detail"`
 }
 
 type planArgs struct {
@@ -37,8 +35,6 @@ func cleanTodos(items []planTodo) []planTodo {
 		}
 		item.Title = title
 		item.Detail = strings.TrimSpace(item.Detail)
-		item.Acceptance = strings.TrimSpace(item.Acceptance)
-		item.DependsOn = strings.TrimSpace(item.DependsOn)
 		out = append(out, item)
 	}
 	return out
@@ -52,7 +48,7 @@ type savePlanTool struct {
 func (t *savePlanTool) Name() string { return SavePlan }
 
 func (t *savePlanTool) Description() string {
-	return "把整理好的名称、概览、润色需求和待办写回当前会话绑定的任务。不要新建任务。只适用于待执行的任务。"
+	return "把整理好的名称、概览、润色需求和待办写回当前会话绑定的任务。不要新建任务。任务已经开始后不能改。"
 }
 
 func (t *savePlanTool) Parameters() map[string]any {
@@ -68,8 +64,12 @@ func (t *savePlanTool) Execute(ctx context.Context, argsJSON string, _ *agentloo
 	if err != nil {
 		return "", err
 	}
-	if task.Status != model.TaskStatusPending {
-		return "", errf("只有待执行的任务可以写入计划")
+	existing, err := t.repo.ListTodos(ctx, task.ID)
+	if err != nil {
+		return "", err
+	}
+	if !model.TaskPlanOpen(existing) {
+		return "", errf("任务已经开始，不能改计划")
 	}
 	name := strings.TrimSpace(args.Name)
 	if name == "" {
@@ -89,15 +89,11 @@ func (t *savePlanTool) Execute(ctx context.Context, argsJSON string, _ *agentloo
 	task.Name = name
 	task.Overview = strings.TrimSpace(args.Overview)
 	task.Description = polished
-	task.Planned = true
-	task.Mode = model.TaskModePlan
 	rows := make([]*model.Todo, 0, len(todos))
 	for _, item := range todos {
 		rows = append(rows, &model.Todo{
-			Title:      item.Title,
-			Detail:     item.Detail,
-			Acceptance: item.Acceptance,
-			DependsOn:  item.DependsOn,
+			Title:  item.Title,
+			Detail: item.Detail,
 		})
 	}
 	if err := t.repo.SaveTaskPlan(ctx, task, rows); err != nil {
@@ -114,7 +110,7 @@ type createTaskTool struct {
 func (t *createTaskTool) Name() string { return CreateTask }
 
 func (t *createTaskTool) Description() string {
-	return "在当前项目下新建一条待执行任务。当前会话已经绑定任务时不要调用，应改用 save_plan。"
+	return "在当前项目下新建一条任务。当前会话已经绑定任务时不要调用，应改用 save_plan。"
 }
 
 func (t *createTaskTool) Parameters() map[string]any {
@@ -157,24 +153,18 @@ func (t *createTaskTool) Execute(ctx context.Context, argsJSON string, _ *agentl
 		Overview:    strings.TrimSpace(args.Overview),
 		RawRequest:  description,
 		Description: strings.TrimSpace(args.Plan),
-		Mode:        model.TaskModePlan,
-		Status:      model.TaskStatusPending,
-		Planned:     len(todos) > 0,
-		ClientID:    firstNonEmpty(t.scope.ClientID, p.ClientID),
 	}
 	if err := t.repo.CreateTask(ctx, task); err != nil {
 		return "", err
 	}
 	for i, item := range todos {
 		td := &model.Todo{
-			TaskID:     task.ID,
-			Seq:        i + 1,
-			Title:      item.Title,
-			Detail:     item.Detail,
-			Acceptance: item.Acceptance,
-			DependsOn:  item.DependsOn,
-			Status:     model.TodoStatusTodo,
-			Source:     model.TodoSourceAgent,
+			TaskID: task.ID,
+			Seq:    i + 1,
+			Title:  item.Title,
+			Detail: item.Detail,
+			Status: model.TodoStatusTodo,
+			Source: model.TodoSourceAgent,
 		}
 		if err := t.repo.CreateTodo(ctx, td); err != nil {
 			return "", err
@@ -221,7 +211,6 @@ func (t *updateDescriptionTool) Execute(ctx context.Context, argsJSON string, _ 
 		return "", err
 	}
 	task.RawRequest = text
-	task.Mode = model.TaskModePlan
 	if err := t.repo.UpdateTask(ctx, task); err != nil {
 		return "", err
 	}
@@ -241,10 +230,8 @@ func planParameters(required bool) map[string]any {
 				"items": map[string]any{
 					"type": "object",
 					"properties": map[string]any{
-						"title":      map[string]any{"type": "string"},
-						"detail":     map[string]any{"type": "string"},
-						"acceptance": map[string]any{"type": "string"},
-						"dependsOn":  map[string]any{"type": "string"},
+						"title":  map[string]any{"type": "string"},
+						"detail": map[string]any{"type": "string"},
 					},
 					"required":             []string{"title"},
 					"additionalProperties": false,
@@ -257,15 +244,6 @@ func planParameters(required bool) map[string]any {
 		spec["required"] = []string{"name", "overview", "plan", "todos"}
 	}
 	return spec
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
 }
 
 func errf(msg string) error { return &toolError{msg: msg} }

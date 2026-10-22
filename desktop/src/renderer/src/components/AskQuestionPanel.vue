@@ -232,7 +232,11 @@ const remainLabel = computed(() => {
 </template>
 
 <style scoped>
-.ask-panel {
+.ask-panel.ask-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   margin: 0;
   padding: 10px 10px 8px;
   border: 1px solid var(--line);
@@ -249,6 +253,8 @@ const remainLabel = computed(() => {
 }
 
 .ask-head h3 {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 14px;
   font-weight: 600;
@@ -266,12 +272,18 @@ const remainLabel = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .q {
   margin: 0;
   padding: 0;
   border: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -323,12 +335,29 @@ legend {
   background: var(--brass-glow);
 }
 
-.opt input {
-  margin-top: 2px;
+.opt span,
+.q :deep(.radio-label) {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
-.q :deep(.radio-label) {
-  overflow-wrap: anywhere;
+.opt input {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 3px 0 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  box-shadow: none;
+  accent-color: var(--brass);
+}
+
+.opt input:focus {
+  border: none;
+  box-shadow: none;
 }
 
 .q .other {

@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from 'vue-router'
 import { bridge, llmApi, type LlmModelRow } from '../../api'
 import { isProviderEnabled } from '../../lib/providerEnabled'
+import { confirm } from '../../composables/confirm'
 import { toast } from '../../composables/toast'
 import { messageOf, useSessionStore } from '../../stores/session'
 import { showResult } from '../../surfaces/registry'
@@ -67,7 +68,6 @@ const editForm = reactive({
   localDir: ''
 })
 
-const removeOpen = ref(false)
 const removeBusy = ref(false)
 
 const enabledModels = ref<LlmModelRow[]>([])
@@ -81,7 +81,6 @@ const currentScene = computed(() => {
 
 const canNext = computed(() => {
   if (step.value === 1) return Boolean(form.name.trim() && form.localDir.trim() && form.modelId > 0)
-  if (step.value === 2) return form.sceneId > 0
   return true
 })
 
@@ -182,6 +181,10 @@ async function loadSceneList(): Promise<void> {
   }
 }
 
+function pickScene(id: number): void {
+  form.sceneId = form.sceneId === id ? 0 : id
+}
+
 function openCustom(scene?: Scene): void {
   customError.value = ''
   customForm.id = scene?.id ?? 0
@@ -209,7 +212,13 @@ async function saveCustom(): Promise<void> {
 }
 
 async function removeScene(scene: Scene): Promise<void> {
-  if (!window.confirm(`删除场景「${scene.title}」？已创建的项目不受影响。`)) return
+  const ok = await confirm({
+    title: '删除场景',
+    message: `删除「${scene.title}」后，已创建的项目不受影响。`,
+    confirmText: '删除',
+    danger: true
+  })
+  if (!ok) return
   const result = await removeCustomScene(scene.id, true)
   showResult(result)
   if (!result.error && form.sceneId === scene.id) form.sceneId = 0
@@ -234,11 +243,6 @@ async function submitProject(): Promise<void> {
   if (!form.localDir.trim()) {
     error.value = '请选择本地目录'
     step.value = 1
-    return
-  }
-  if (!form.sceneId) {
-    error.value = '请选择场景'
-    step.value = 2
     return
   }
   busy.value = true
@@ -343,11 +347,24 @@ async function openFolder(): Promise<void> {
 }
 
 async function confirmRemove(): Promise<void> {
+  const current = project.value
+  if (!current || removeBusy.value) return
   removeBusy.value = true
   try {
-    const result = await deleteProject(true)
-    showResult(result)
-    if (!result.error) removeOpen.value = false
+    await confirm({
+      title: '删除项目',
+      subtitle: '任务记录会删除，本机目录保留。',
+      message: `删除「${current.name}」后，这个项目下的任务记录会删除。文件夹仍留在原处。`,
+      detail: current.localDir,
+      confirmText: '删除',
+      danger: true,
+      busyText: '删除中…',
+      action: async () => {
+        const result = await deleteProject(true)
+        if (result.error) throw new Error(result.error)
+        showResult(result)
+      }
+    })
   } finally {
     removeBusy.value = false
   }
@@ -373,7 +390,7 @@ onBeforeUnmount(() => {
             {{ createPage.envBusy ? '检测中…' : '检测开发环境' }}
           </button>
           <button class="btn ghost sm" @click="openFolder">打开文件夹</button>
-          <button class="btn danger sm" @click="removeOpen = true">删除项目</button>
+          <button class="btn danger sm" :disabled="removeBusy" @click="confirmRemove">删除项目</button>
         </template>
       </div>
     </header>
@@ -435,7 +452,7 @@ onBeforeUnmount(() => {
     <Dialog
       :open="wizardOpen"
       title="新建项目"
-      subtitle="先填基本信息，再选一个场景。"
+      subtitle="先填基本信息。场景可以不选。"
       width="680px"
       @close="wizardOpen = false"
     >
@@ -469,7 +486,7 @@ onBeforeUnmount(() => {
 
       <div v-else class="form">
         <div class="scenes-bar">
-          <span class="tip">选一个场景。描述较长时点「详情」看全文。也可以保存自己的场景，下次还能用。</span>
+          <span class="tip">场景可以不选。再点一次已选场景可取消。描述较长时点「详情」看全文，也可以保存自己的场景。</span>
           <button class="btn sm" type="button" @click="openCustom()">自定义场景</button>
         </div>
         <p v-if="scenesBusy" class="tip">正在加载场景…</p>
@@ -480,7 +497,7 @@ onBeforeUnmount(() => {
             :key="scene.id"
             class="scene"
             :class="{ on: form.sceneId === scene.id }"
-            @click="form.sceneId = scene.id"
+            @click="pickScene(scene.id)"
           >
             <div class="scene-head">
               <span class="scene-title ellipsis">{{ scene.title }}</span>
@@ -576,27 +593,6 @@ onBeforeUnmount(() => {
         <div class="spacer" />
         <button class="btn primary" :disabled="editBusy" @click="saveEdit">
           {{ editBusy ? '保存中…' : '保存' }}
-        </button>
-      </template>
-    </Dialog>
-
-    <Dialog
-      :open="removeOpen"
-      title="删除项目"
-      subtitle="任务记录会删除，本机目录保留。"
-      width="420px"
-      :persistent="removeBusy"
-      @close="removeOpen = false"
-    >
-      <p v-if="project" class="confirm-copy">
-        删除「{{ project.name }}」后，这个项目下的任务记录会删除。文件夹仍留在原处。
-      </p>
-      <p v-if="project?.localDir" class="mono path">{{ project.localDir }}</p>
-      <template #footer>
-        <button class="btn ghost" type="button" :disabled="removeBusy" @click="removeOpen = false">取消</button>
-        <div class="spacer" />
-        <button class="btn danger" type="button" :disabled="removeBusy" @click="confirmRemove">
-          {{ removeBusy ? '删除中…' : '删除' }}
         </button>
       </template>
     </Dialog>
@@ -736,13 +732,6 @@ h1 {
   color: var(--rust);
   border-color: var(--rust-dim);
 }
-.confirm-copy {
-  margin: 0 0 10px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text);
-}
-
 .steps {
   display: flex;
   gap: 18px;

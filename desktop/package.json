@@ -1,7 +1,7 @@
 {
   "name": "ade-desktop",
   "version": "0.1.0",
-  "description": "ADE 桌面：四个工位与公共 Shell",
+  "description": "ADE 桌面：三个工位与公共 Shell",
   "main": "./out/main/index.js",
   "author": "ADE",
   "private": true,

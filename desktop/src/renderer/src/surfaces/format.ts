@@ -20,20 +20,12 @@ export function briefTask(task: Task): Record<string, unknown> {
   return {
     id: task.id,
     name: task.name,
-    status: task.status,
     projectId: task.projectId,
     projectName: task.projectName,
-    planned: task.planned,
     doneCount: task.doneCount,
     totalCount: task.totalCount,
-    retries: task.retries,
-    branch: task.branch,
-    worktree: task.worktree,
-    mergedDev: task.mergedDev,
-    mergedMain: task.mergedMain,
     overview: task.overview,
-    description: task.description,
-    lastError: task.lastError?.message ?? ''
+    description: task.description
   }
 }
 
@@ -42,8 +34,6 @@ export function briefTodo(todo: Todo): Record<string, unknown> {
     id: todo.id,
     title: todo.title,
     detail: todo.detail,
-    acceptance: todo.acceptance,
-    dependsOn: todo.dependsOn,
     status: todo.status
   }
 }

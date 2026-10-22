@@ -1,0 +1,37 @@
+---
+description: Git 提交信息必须使用中文
+alwaysApply: true
+---
+
+# Git 提交信息（中文）
+
+生成或代写 commit message 时，**描述部分必须使用中文**。
+
+## 格式
+
+```
+<类型>: <中文简短描述>
+
+<中文详细说明（可选）>
+```
+
+类型可用英文前缀：`feature` / `fix` / `refactor` / `docs` / `style` / `test` / `chore` / `perf`。
+
+## 示例
+
+```
+# ✅ GOOD
+feature: 增加任务计划聊天时间线
+fix: 修复部署失败时状态未回写的问题
+refactor: 移除运行记录，任务错误直接落库
+
+# ❌ BAD
+feature: add task chat timeline
+fix: fix deploy status not updated
+```
+
+## 要求
+
+- 简短描述说明「为什么改」，不超过约 50 字
+- 不要用纯英文写提交说明（类型前缀除外）
+- 遵循仓库既有风格，与近期 `git log` 保持一致

@@ -6,21 +6,22 @@ import (
 	"strings"
 
 	"chengzi-agent-code-server/internal/model"
-	"chengzi-agent-code-server/pkg/timex"
 )
 
-// runTask 执行中：由 ade-coder 读取计划，在客户端用 shell 准备 worktree 并完成待办。
+// runTask 执行中：由 ade-coder 读取计划，在项目目录里完成待办。
 // 做完哪几条由智能体调用 complete_todo 写回，这里不代标。
 func (s *Service) runTask(ctx context.Context, taskID uint64) {
 	t, err := s.repo.GetTask(ctx, taskID)
 	if err != nil {
+		s.forgetQueued(taskID)
 		return
 	}
 	p, err := s.repo.GetProject(ctx, t.ProjectID)
 	if err != nil {
+		s.forgetQueued(taskID)
 		return
 	}
-	clientID := firstNonEmpty(t.ClientID, p.ClientID)
+	clientID := strings.TrimSpace(p.ClientID)
 	if clientID == "" {
 		s.fail(ctx, t, nil, "没有可下发的客户端")
 		return
@@ -30,7 +31,7 @@ func (s *Service) runTask(ctx context.Context, taskID uint64) {
 		return
 	}
 
-	coder, err := AgentByID(t.CoderAgentID)
+	coder, err := AgentByID("ade-coder")
 	if err != nil {
 		s.fail(ctx, t, nil, err.Error())
 		return
@@ -48,63 +49,30 @@ func (s *Service) runTask(ctx context.Context, taskID uint64) {
 		return
 	}
 
-	// 已有 worktree 就直接在里面干；否则从仓库目录开始，让智能体用 shell 自己建。
-	workspace := strings.TrimSpace(t.Worktree)
-	if workspace == "" {
-		workspace = strings.TrimSpace(p.LocalDir)
-	}
+	workspace := strings.TrimSpace(p.LocalDir)
 	if workspace == "" {
 		s.fail(ctx, t, run, "项目还没有本机目录，无法执行")
 		return
 	}
 
-	s.logLine(t, run, "开始执行，由开发智能体用终端准备 worktree")
+	s.logLine(t, run, "开始执行")
 	_, err = s.runAgent(ctx, t, p, run, coder.ID, workspace, "开始执行当前任务。")
-	if fresh, ferr := s.repo.GetTask(ctx, t.ID); ferr == nil {
-		t = fresh
-	}
 	if err != nil {
 		s.fail(ctx, t, run, err.Error())
 		return
 	}
-	if strings.TrimSpace(t.Worktree) == "" {
-		s.fail(ctx, t, run, "开发结束但没有记下 worktree")
-		return
-	}
 
-	t.Status = model.TaskStatusWaitTest
-	t.ErrorKind = ""
-	t.ErrorAgentID = ""
-	t.ErrorMessage = ""
-	t.ErrorAt = timex.LocalTime{}
-	t.UpdatedAt = timex.LocalTime(nowTime())
-	_ = s.repo.UpdateTask(ctx, t)
-	s.logLine(t, run, "开发完成，进入待测试")
+	s.forgetQueued(t.ID)
+	s.logLine(t, run, "开发完成")
 }
 
-func (s *Service) fail(ctx context.Context, t *model.Task, run *agentRun, msg string) {
+func (s *Service) fail(_ context.Context, t *model.Task, run *agentRun, msg string) {
+	if t == nil {
+		return
+	}
+	s.forgetQueued(t.ID)
 	if run == nil {
 		s.bus.Begin(t.ID)
 	}
-	t.Status = model.TaskStatusFailed
-	t.ErrorMessage = msg
-	t.ErrorAt = timex.LocalTime(nowTime())
-	t.ErrorKind = ""
-	t.ErrorAgentID = ""
-	if run != nil {
-		t.ErrorKind = run.Kind
-		t.ErrorAgentID = run.AgentID
-	}
-	t.UpdatedAt = timex.LocalTime(nowTime())
-	_ = s.repo.UpdateTask(ctx, t)
 	s.logLine(t, run, "执行出错："+msg)
-}
-
-func firstNonEmpty(list ...string) string {
-	for _, v := range list {
-		if strings.TrimSpace(v) != "" {
-			return strings.TrimSpace(v)
-		}
-	}
-	return ""
 }

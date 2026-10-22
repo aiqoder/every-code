@@ -1,9 +1,7 @@
 import { reactive } from 'vue'
 import { adeApi } from '../api'
 import { messageOf, useSessionStore } from '../stores/session'
-import { useShellStore } from '../stores/shell'
 import type { PendingAskQuestion, Task } from '../../../shared/types'
-import { STATUS_ORDER } from '../../../shared/types'
 import { asNumber, asText, briefTask } from './format'
 import { openPath } from './nav'
 import { fail, ok, emptyParams, params, type ActionResult, type PageSurface } from './types'
@@ -11,7 +9,6 @@ import { fail, ok, emptyParams, params, type ActionResult, type PageSurface } fr
 export const executePage = reactive({
   selectedId: 0,
   busy: false,
-  failureOpen: false,
   /** 由 ExecuteChat 同步，供 surface 快照与 answer_question 使用。 */
   pendingAsk: null as PendingAskQuestion | null
 })
@@ -36,17 +33,9 @@ export async function refreshSelected(): Promise<void> {
 
 export async function selectTask(task: Task): Promise<ActionResult> {
   executePage.selectedId = task.id
-  executePage.failureOpen = false
   localStorage.setItem('ade:task', String(task.id))
   await refreshSelected()
-  if (task.worktree) await focusTerminal(task)
   return ok(`已选中任务 #${task.id} ${task.name || ''}`.trim())
-}
-
-export async function focusTerminal(task: Task): Promise<ActionResult> {
-  if (!task.worktree) return fail('这条任务还没有 worktree')
-  await useShellStore().openTask(task.id, task.name || `任务 ${task.id}`, task.worktree)
-  return ok(`已聚焦终端：${task.worktree}`)
 }
 
 export async function startTask(task: Task): Promise<ActionResult> {
@@ -56,9 +45,7 @@ export async function startTask(task: Task): Promise<ActionResult> {
     const updated = await adeApi.startTask(task.id)
     useSessionStore().upsertTask(updated)
     executePage.selectedId = updated.id
-    const worktree = updated.worktree || ''
-    if (worktree) await useShellStore().openTask(updated.id, updated.name || `任务 ${updated.id}`, worktree)
-    return ok(`已开始执行任务 #${updated.id}`, '已开始执行，Agent 正在准备 worktree')
+    return ok(`已开始执行任务 #${updated.id}`, '已开始执行')
   } catch (err) {
     return fail(messageOf(err))
   } finally {
@@ -72,7 +59,7 @@ export async function retryTask(task: Task): Promise<ActionResult> {
   try {
     const updated = await adeApi.retryTask(task.id)
     useSessionStore().upsertTask(updated)
-    return ok(`任务 #${updated.id} 已改回重新执行`, '已改回重新执行', 'plain')
+    return ok(`任务 #${updated.id} 已继续执行`, '已继续执行')
   } catch (err) {
     return fail(messageOf(err))
   } finally {
@@ -107,7 +94,7 @@ async function taskByArg(args: Record<string, unknown>): Promise<Task | ActionRe
 }
 
 function isTask(value: Task | ActionResult): value is Task {
-  return typeof (value as Task).id === 'number' && 'status' in value
+  return typeof (value as Task).id === 'number' && Array.isArray((value as Task).todos)
 }
 
 export const executeSurface: PageSurface = {
@@ -118,11 +105,10 @@ export const executeSurface: PageSurface = {
     const session = useSessionStore()
     const tasks = session.allTasks
     const selected = tasks.find((task) => task.id === executePage.selectedId) ?? null
-    const counts: Record<string, number> = {}
-    for (const status of STATUS_ORDER) counts[status] = tasks.filter((task) => task.status === status).length
     return {
       busy: executePage.busy,
-      counts,
+      doneCount: tasks.reduce((sum, task) => sum + task.doneCount, 0),
+      totalCount: tasks.reduce((sum, task) => sum + task.totalCount, 0),
       selected: selected ? briefTask(selected) : null,
       pendingAsk: executePage.pendingAsk
         ? {
@@ -138,7 +124,7 @@ export const executeSurface: PageSurface = {
   actions: [
     {
       name: 'select_task',
-      description: '选中一条任务，打开它的详情，并在有 worktree 时聚焦终端。',
+      description: '选中一条任务并打开它的详情。',
       parameters: params({ taskId: { type: 'number' } }, ['taskId']),
       async run(args) {
         const task = await taskByArg(args)
@@ -148,34 +134,24 @@ export const executeSurface: PageSurface = {
     },
     {
       name: 'start_task',
-      description: '开始执行一条待执行且已拆解完成的任务。',
+      description: '开始执行一条已拆解、还有未完成待办的任务。',
       parameters: params({ taskId: { type: 'number' } }, ['taskId']),
       async run(args) {
         const task = await taskByArg(args)
         if (!isTask(task)) return task
-        if (task.status !== 'pending') return fail('只有待执行的任务可以开始')
-        if (!task.planned) return fail('计划还没拆完')
+        if (task.totalCount <= 0) return fail('计划还没拆完')
+        if (task.doneCount >= task.totalCount) return fail('待办已完成')
         return startTask(task)
       }
     },
     {
       name: 'retry_task',
-      description: '把执行出错的任务改回重新执行。',
+      description: '继续执行还有未完成待办的任务。',
       parameters: params({ taskId: { type: 'number' } }, ['taskId']),
       async run(args) {
         const task = await taskByArg(args)
         if (!isTask(task)) return task
         return retryTask(task)
-      }
-    },
-    {
-      name: 'focus_terminal',
-      description: '把这条任务的终端带到前台。',
-      parameters: params({ taskId: { type: 'number' } }, ['taskId']),
-      async run(args) {
-        const task = await taskByArg(args)
-        if (!isTask(task)) return task
-        return focusTerminal(task)
       }
     },
     {

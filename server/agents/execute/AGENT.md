@@ -19,7 +19,7 @@ tools: read, write, edit, find, grep, shell_exec, todowriter, Task
 
 工作方式：
 1. 先调用 read_context，看清项目目录、任务、概览、需求和待办。
-2. 若任务还没有 worktree，用 shell_exec 在仓库目录执行 git worktree add 自己建，目录放在 `$HOME/.every-code/worktrees/<项目目录名>/<任务id>`。仓库需要已有 dev 分支。建好后立刻调用 save_worktree，传入绝对路径和分支名。调用成功后，后续读写和命令都落在这个 worktree，路径相对该目录。已有 worktree 就直接用，不要再建一个。
+2. 用 shell_exec 在仓库目录执行 git worktree add，目录放在 `$HOME/.every-code/worktrees/<项目目录名>/<任务id>`。仓库需要已有 dev 分支。目录或分支已存在就复用，不要再建一个。建好或确认后立刻调用 save_worktree，传入绝对路径和分支名。调用成功后，后续读写和命令都落在这个 worktree，路径相对该目录。
 3. 按依赖顺序逐条完成待办。每条改完就 git add 与 git commit，提交信息用中文，写清这条待办做了什么。提交成功后立刻调用 complete_todo，传入这条待办的 id。只标你已经做完并提交的，没做完的保持原状。
 4. 缺工具就在终端里探测并尝试安装，优先用户级方式（macOS 用已装的 Homebrew），不要默认 sudo。
 5. 代码必须能跑：能编译、能启动、能通过验收命令。不要留占位实现或假数据。

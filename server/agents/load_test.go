@@ -7,7 +7,7 @@ import (
 
 func TestAllStations(t *testing.T) {
 	got := All()
-	want := []string{"ade-advisor", "ade-coder", "ade-verifier", "ade-deploy"}
+	want := []string{"ade-advisor", "ade-coder", "ade-deploy"}
 	if len(got) != len(want) {
 		t.Fatalf("count: %d", len(got))
 	}
@@ -51,7 +51,7 @@ func TestBuiltinToolsFollowWhitelist(t *testing.T) {
 			t.Fatalf("%s should allow AskQuestion", id)
 		}
 	}
-	for _, id := range []string{"ade-coder", "ade-verifier", "ade-reviewer", EnvCheckID} {
+	for _, id := range []string{"ade-coder", "ade-reviewer", EnvCheckID} {
 		agent, ok := ByID(id)
 		if !ok || hasTool(agent, "AskQuestion") {
 			t.Fatalf("%s should not allow AskQuestion", id)

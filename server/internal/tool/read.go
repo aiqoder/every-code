@@ -91,13 +91,11 @@ func taskView(t *model.Task, todos []model.Todo) map[string]any {
 	rows := make([]map[string]any, 0, len(todos))
 	for _, td := range todos {
 		rows = append(rows, map[string]any{
-			"id":         td.ID,
-			"title":      td.Title,
-			"detail":     td.Detail,
-			"acceptance": td.Acceptance,
-			"dependsOn":  td.DependsOn,
-			"status":     td.Status,
-			"source":     td.Source,
+			"id":     td.ID,
+			"title":  td.Title,
+			"detail": td.Detail,
+			"status": td.Status,
+			"source": td.Source,
 		})
 	}
 	return map[string]any{
@@ -106,10 +104,6 @@ func taskView(t *model.Task, todos []model.Todo) map[string]any {
 		"overview":    t.Overview,
 		"description": t.Description,
 		"rawRequest":  t.RawRequest,
-		"status":      t.Status,
-		"planned":     t.Planned,
-		"branch":      t.Branch,
-		"worktree":    t.Worktree,
 		"todos":       rows,
 	}
 }

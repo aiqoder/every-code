@@ -35,7 +35,7 @@ func TestSavePlanWritesCurrentTask(t *testing.T) {
 	if err := repo.CreateProject(ctx, project); err != nil {
 		t.Fatal(err)
 	}
-	task := &model.Task{UserID: 7, ProjectID: project.ID, Status: model.TaskStatusPending, RawRequest: "做一个列表"}
+	task := &model.Task{UserID: 7, ProjectID: project.ID, RawRequest: "做一个列表"}
 	if err := repo.CreateTask(ctx, task); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestSavePlanWritesCurrentTask(t *testing.T) {
 		"name":"列表",
 		"overview":"打开就能看到数据",
 		"plan":"做一个列表页",
-		"todos":[{"title":"加接口","detail":"改 handler","acceptance":"接口返回列表","dependsOn":""}]
+		"todos":[{"title":"加接口","detail":"改 handler"}]
 	}`, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +66,7 @@ func TestSavePlanWritesCurrentTask(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "列表" || !got.Planned {
+	if got.Name != "列表" {
 		t.Fatalf("task: %+v", got)
 	}
 	todos, err := repo.ListTodos(ctx, task.ID)
@@ -137,21 +137,6 @@ func TestExecuteChannelReadsPlanAndRecordsWorktree(t *testing.T) {
 	}
 }
 
-func TestTestChannelOnlyReadsContext(t *testing.T) {
-	repo := setupToolDB(t)
-	scope := Scope{UserID: 7, ProjectID: 1, TaskID: 2, Channel: model.ChannelTest}
-	names := map[string]struct{}{}
-	for _, item := range For(repo, scope) {
-		names[item.Name()] = struct{}{}
-	}
-	if len(names) != 1 || !namesHas(names, ReadContext) {
-		t.Fatalf("test tools: %v", names)
-	}
-	if got := For(repo, Scope{UserID: 7, ProjectID: 1, Channel: model.ChannelTest}); len(got) != 0 {
-		t.Fatalf("unbound test tools: %d", len(got))
-	}
-}
-
 func TestExecuteWithoutTaskHasNoDataTools(t *testing.T) {
 	repo := setupToolDB(t)
 	scope := Scope{UserID: 7, ProjectID: 1, Channel: model.ChannelExecute}
@@ -167,7 +152,7 @@ func TestSaveWorktreeSwitchesWorkspace(t *testing.T) {
 	if err := repo.CreateProject(ctx, project); err != nil {
 		t.Fatal(err)
 	}
-	task := &model.Task{UserID: 7, ProjectID: project.ID, Status: model.TaskStatusRunning}
+	task := &model.Task{UserID: 7, ProjectID: project.ID}
 	if err := repo.CreateTask(ctx, task); err != nil {
 		t.Fatal(err)
 	}
@@ -185,14 +170,7 @@ func TestSaveWorktreeSwitchesWorkspace(t *testing.T) {
 	if _, err := save.Execute(ctx, `{"path":"/Users/me/.every-code/worktrees/demo/3","branch":"ade/3"}`, rt); err != nil {
 		t.Fatal(err)
 	}
-	got, err := repo.GetTask(ctx, task.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Worktree == "" || got.Branch != "ade/3" {
-		t.Fatalf("task: %+v", got)
-	}
-	if rt.Shared[agentloop.SharedWorkspace] != got.Worktree {
+	if rt.Shared[agentloop.SharedWorkspace] != "/Users/me/.every-code/worktrees/demo/3" {
 		t.Fatalf("workspace: %+v", rt.Shared)
 	}
 	if _, err := save.Execute(ctx, `{"path":"relative","branch":"ade/3"}`, rt); err == nil {
@@ -207,11 +185,11 @@ func TestCompleteTodoMarksOnlyThatRow(t *testing.T) {
 	if err := repo.CreateProject(ctx, project); err != nil {
 		t.Fatal(err)
 	}
-	task := &model.Task{UserID: 7, ProjectID: project.ID, Status: model.TaskStatusRunning}
+	task := &model.Task{UserID: 7, ProjectID: project.ID}
 	if err := repo.CreateTask(ctx, task); err != nil {
 		t.Fatal(err)
 	}
-	other := &model.Task{UserID: 7, ProjectID: project.ID, Status: model.TaskStatusRunning}
+	other := &model.Task{UserID: 7, ProjectID: project.ID}
 	if err := repo.CreateTask(ctx, other); err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +201,7 @@ func TestCompleteTodoMarksOnlyThatRow(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	scope := Scope{UserID: 7, ProjectID: project.ID, TaskID: task.ID, Channel: model.ChannelExecute, ConversationID: 42}
+	scope := Scope{UserID: 7, ProjectID: project.ID, TaskID: task.ID, Channel: model.ChannelExecute}
 	var complete agentloop.Tool
 	for _, item := range For(repo, scope) {
 		if item.Name() == CompleteTodo {
@@ -240,7 +218,7 @@ func TestCompleteTodoMarksOnlyThatRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Status != model.TodoStatusDone || got.ConversationID != 42 {
+	if got.Status != model.TodoStatusDone {
 		t.Fatalf("completed: %+v", got)
 	}
 	left, err := repo.GetTodo(ctx, keep.ID)
