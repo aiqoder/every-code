@@ -30,7 +30,7 @@ const (
 	TodoStatusDone  = "done"
 )
 
-// 运行种类。
+// 执行阶段，用来把后台会话挂到对应工位。
 const (
 	RunKindPlanner   = "planner"
 	RunKindCoder     = "coder"
@@ -38,14 +38,6 @@ const (
 	RunKindReviewer  = "reviewer"
 	RunKindInstaller = "installer"
 	RunKindDeploy    = "deploy"
-)
-
-// 运行状态。
-const (
-	RunStatusRunning = "running"
-	RunStatusDone    = "done"
-	RunStatusFailed  = "failed"
-	RunStatusSkipped = "skipped"
 )
 
 // Project 项目是容器。
@@ -103,6 +95,10 @@ type Task struct {
 	ReviewerAgentID string          `gorm:"size:64;not null;default:'';comment:复核智能体 id，由客户端传入" json:"reviewerAgentId"`
 	Retries         int             `gorm:"not null;default:0;comment:任务级回修次数汇总" json:"retries"`
 	Planned         bool            `gorm:"not null;default:false;comment:是否已拆解完成" json:"planned"`
+	ErrorKind       string          `gorm:"size:32;not null;default:'';comment:最近一次失败的阶段" json:"-"`
+	ErrorAgentID    string          `gorm:"size:64;not null;default:'';comment:最近一次失败的智能体" json:"-"`
+	ErrorMessage    string          `gorm:"type:text;not null;default:'';comment:最近一次失败原因" json:"-"`
+	ErrorAt         timex.LocalTime `gorm:"comment:最近一次失败时间" json:"-"`
 	CreatedAt       timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
 	UpdatedAt       timex.LocalTime `gorm:"comment:更新时间" json:"updatedAt"`
 }
@@ -130,39 +126,6 @@ type Todo struct {
 
 func (Todo) TableName() string    { return "ade_todos" }
 func (Todo) TableComment() string { return "任务待办" }
-
-// Run 一次 Agent 运行：规划、编码、验收、复核、部署。
-type Run struct {
-	ID             uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
-	TaskID         uint64          `gorm:"not null;index;comment:所属任务" json:"taskId"`
-	ProjectID      uint64          `gorm:"not null;index;comment:所属项目" json:"projectId"`
-	UserID         uint64          `gorm:"not null;index;comment:所属用户" json:"userId"`
-	Kind           string          `gorm:"size:32;not null;comment:运行种类。planner 规划，coder 编码，verifier 验收，reviewer 复核，installer 安装，deploy 部署" json:"kind"`
-	AgentID        string          `gorm:"size:64;not null;default:'';comment:智能体 id" json:"agentId"`
-	Status         string          `gorm:"size:16;not null;default:'running';comment:运行状态。running 进行中，done 完成，failed 失败，skipped 跳过" json:"status"`
-	ConversationID uint64          `gorm:"not null;default:0;comment:本次运行的会话，0 表示没有" json:"conversationId"`
-	Summary        string          `gorm:"type:text;not null;comment:结果摘要" json:"summary"`
-	Error          string          `gorm:"type:text;not null;comment:失败原因" json:"error"`
-	StartedAt      timex.LocalTime `gorm:"comment:开始时间" json:"startedAt"`
-	FinishedAt     timex.LocalTime `gorm:"comment:结束时间" json:"finishedAt"`
-}
-
-func (Run) TableName() string    { return "ade_runs" }
-func (Run) TableComment() string { return "一次智能体运行" }
-
-// RunEvent 运行事件流，持久化后供 SSE 回放。
-type RunEvent struct {
-	ID        uint64          `gorm:"primaryKey;autoIncrement;comment:主键" json:"id"`
-	RunID     uint64          `gorm:"not null;index;comment:所属运行" json:"runId"`
-	TaskID    uint64          `gorm:"not null;index;comment:所属任务" json:"taskId"`
-	Seq       int             `gorm:"not null;default:0;comment:事件序号" json:"seq"`
-	Type      string          `gorm:"size:64;not null;comment:事件类型" json:"type"`
-	Payload   string          `gorm:"type:text;not null;comment:事件内容 JSON" json:"payload"`
-	CreatedAt timex.LocalTime `gorm:"comment:创建时间" json:"createdAt"`
-}
-
-func (RunEvent) TableName() string    { return "ade_run_events" }
-func (RunEvent) TableComment() string { return "运行事件，供回放" }
 
 // DeployHost 部署主机档案。私钥不落库，只在本机。
 type DeployHost struct {

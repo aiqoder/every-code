@@ -6,7 +6,6 @@ import type {
   Project,
   ReleaseRecord,
   Scene,
-  RunRecord,
   SkillFile,
   SkillMeta,
   Task,
@@ -296,8 +295,6 @@ export const adeApi = {
   updateTodo: (todoId: number, payload: Record<string, unknown>) =>
     patch<Todo>(`/api/ade/todos/${todoId}`, payload),
   deleteTodo: (todoId: number) => del<{ id: number }>(`/api/ade/todos/${todoId}`),
-  taskRuns: (id: number) => get<{ list: RunRecord[] }>(`/api/ade/tasks/${id}/runs`),
-  runs: () => get<{ list: RunRecord[] }>('/api/ade/runs'),
 
   answerQuestion: (
     conversationId: number,

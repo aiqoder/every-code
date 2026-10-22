@@ -276,10 +276,6 @@ const statusDot = computed(() => {
       <button class="foot-item" :class="{ on: route.path.startsWith('/hosts') }" @click="router.push('/hosts')">
         <span class="fi-label">主机</span>
       </button>
-      <button class="foot-item" :class="{ on: route.path.startsWith('/runs') }" @click="router.push('/runs')">
-        <span class="fi-label">运行记录</span>
-        <span class="fi-meta">{{ session.runs.length }}</span>
-      </button>
       <button class="foot-item" @click="openSettings">
         <span class="fi-label">服务连接</span>
         <span class="fi-meta">

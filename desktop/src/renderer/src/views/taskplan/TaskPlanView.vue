@@ -26,6 +26,7 @@ import TextField from '../../components/TextField.vue'
 import AskQuestionPanel from '../../components/AskQuestionPanel.vue'
 import MarkdownBody from '../../components/MarkdownBody.vue'
 import type { TaskEvent } from '../../../../shared/types'
+import { taskDisplayName } from '../../utils/taskTitle'
 
 const route = useRoute()
 const router = useRouter()
@@ -214,41 +215,6 @@ watch(chatStreaming, (on, was) => {
   void load()
 })
 
-let kickoffId = 0
-
-watch(
-  () => {
-    const chat = railChat.value
-    const current = task.value
-    return {
-      id: current?.id ?? 0,
-      planned: Boolean(current?.planned),
-      text: (current?.rawRequest || current?.description || '').trim(),
-      ready: chat?.state.ready ?? false,
-      chatTaskId: chat?.state.taskId ?? 0,
-      conversations: chat?.state.conversations.length ?? 0,
-      lines: chat?.state.lines.length ?? 0,
-      streaming: chat?.state.streaming ?? false,
-      activeId: chat?.state.activeId ?? 0
-    }
-  },
-  async (now) => {
-    if (!now.id || now.planned || !now.ready || now.chatTaskId !== now.id) return
-    if (now.streaming || now.lines || now.conversations || now.activeId) return
-    if (!now.text || kickoffId === now.id) return
-    const chat = railChat.value
-    if (!chat) return
-    kickoffId = now.id
-    try {
-      const started = await chat.send(now.text, now.text.slice(0, 40), session.profile.modelId)
-      if (!started) kickoffId = 0
-    } catch (err) {
-      kickoffId = 0
-      toast.error(messageOf(err))
-    }
-  },
-  { immediate: true }
-)
 
 const KIND_LABEL: Record<string, string> = {
   planner: '拆解',
@@ -435,7 +401,7 @@ onBeforeUnmount(() => {
       <div class="main" @scroll="hideTodoTipNow">
         <div class="title-block">
           <span class="proj">{{ task.projectName }} · #{{ task.id }}</span>
-          <h1 class="serif">{{ task.name || (isPlanning ? '正在拆解…' : '新任务') }}</h1>
+          <h1 class="serif">{{ taskDisplayName(task) }}</h1>
           <div class="row title-actions">
             <StatusPill :status="task.status" />
             <span v-if="task.mergedDev" class="tag"><span class="dot" style="color: var(--moss)" />已合 dev</span>

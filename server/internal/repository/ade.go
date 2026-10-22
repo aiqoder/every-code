@@ -9,7 +9,7 @@ import (
 	"chengzi-agent-code-server/internal/model"
 )
 
-// AdeRepository ADE 项目、任务、待办、运行与部署的数据访问。
+// AdeRepository ADE 项目、任务、待办与部署的数据访问。
 type AdeRepository interface {
 	CreateProject(ctx context.Context, p *model.Project) error
 	UpdateProject(ctx context.Context, p *model.Project) error
@@ -33,15 +33,6 @@ type AdeRepository interface {
 	GetTodo(ctx context.Context, id uint64) (*model.Todo, error)
 	ListTodos(ctx context.Context, taskID uint64) ([]model.Todo, error)
 	ResetTodos(ctx context.Context, taskID uint64) error
-
-	CreateRun(ctx context.Context, r *model.Run) error
-	UpdateRun(ctx context.Context, r *model.Run) error
-	GetRun(ctx context.Context, id uint64) (*model.Run, error)
-	ListRuns(ctx context.Context, userID uint64, limit int) ([]model.Run, error)
-	ListRunsByTask(ctx context.Context, taskID uint64) ([]model.Run, error)
-
-	AppendRunEvent(ctx context.Context, e *model.RunEvent) error
-	ListRunEvents(ctx context.Context, runID uint64, afterSeq int) ([]model.RunEvent, error)
 
 	CreateHost(ctx context.Context, h *model.DeployHost) error
 	UpdateHost(ctx context.Context, h *model.DeployHost) error
@@ -249,66 +240,6 @@ func (r *adeRepository) ResetTodos(ctx context.Context, taskID uint64) error {
 	return r.db.WithContext(ctx).Model(&model.Todo{}).
 		Where("task_id = ? AND source = ?", taskID, model.TodoSourceUser).
 		Update("status", model.TodoStatusTodo).Error
-}
-
-func (r *adeRepository) CreateRun(ctx context.Context, run *model.Run) error {
-	if err := r.db.WithContext(ctx).Create(run).Error; err != nil {
-		return fmt.Errorf("create run: %w", err)
-	}
-	return nil
-}
-
-func (r *adeRepository) UpdateRun(ctx context.Context, run *model.Run) error {
-	if err := r.db.WithContext(ctx).Save(run).Error; err != nil {
-		return fmt.Errorf("update run: %w", err)
-	}
-	return nil
-}
-
-func (r *adeRepository) GetRun(ctx context.Context, id uint64) (*model.Run, error) {
-	var run model.Run
-	if err := r.db.WithContext(ctx).First(&run, id).Error; err != nil {
-		return nil, fmt.Errorf("get run: %w", err)
-	}
-	return &run, nil
-}
-
-func (r *adeRepository) ListRuns(ctx context.Context, userID uint64, limit int) ([]model.Run, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	var list []model.Run
-	if err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).Order("id desc").Limit(limit).Find(&list).Error; err != nil {
-		return nil, fmt.Errorf("list runs: %w", err)
-	}
-	return list, nil
-}
-
-func (r *adeRepository) ListRunsByTask(ctx context.Context, taskID uint64) ([]model.Run, error) {
-	var list []model.Run
-	if err := r.db.WithContext(ctx).
-		Where("task_id = ?", taskID).Order("id asc").Find(&list).Error; err != nil {
-		return nil, fmt.Errorf("list task runs: %w", err)
-	}
-	return list, nil
-}
-
-func (r *adeRepository) AppendRunEvent(ctx context.Context, e *model.RunEvent) error {
-	if err := r.db.WithContext(ctx).Create(e).Error; err != nil {
-		return fmt.Errorf("append run event: %w", err)
-	}
-	return nil
-}
-
-func (r *adeRepository) ListRunEvents(ctx context.Context, runID uint64, afterSeq int) ([]model.RunEvent, error) {
-	var list []model.RunEvent
-	if err := r.db.WithContext(ctx).
-		Where("run_id = ? AND seq > ?", runID, afterSeq).
-		Order("seq asc").Find(&list).Error; err != nil {
-		return nil, fmt.Errorf("list run events: %w", err)
-	}
-	return list, nil
 }
 
 func (r *adeRepository) CreateHost(ctx context.Context, h *model.DeployHost) error {

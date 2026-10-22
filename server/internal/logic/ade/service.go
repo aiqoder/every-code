@@ -17,8 +17,6 @@ import (
 	"chengzi-agent-code-server/pkg/agentloop"
 	"chengzi-agent-code-server/pkg/clienthub"
 	"chengzi-agent-code-server/pkg/timex"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // Service ADE 领域服务：拆解、执行、验收、复核、调度的编排都在这里。
@@ -230,9 +228,8 @@ func (s *Service) SaveEnvCheck(ctx context.Context, p *model.Project, items []En
 // 任务
 // ---------------------------------------------------------------------------
 
-// TaskError 最近一次失败运行的摘要，供界面直接展示失败原因。
+// TaskError 最近一次失败的摘要，供界面直接展示失败原因。
 type TaskError struct {
-	RunID   uint64          `json:"runId"`
 	Kind    string          `json:"kind"`
 	AgentID string          `json:"agentId"`
 	Message string          `json:"message"`
@@ -262,34 +259,25 @@ func (s *Service) ToTaskVO(ctx context.Context, t *model.Task, projectName strin
 			}
 		}
 	}
-	vo.LastError = s.lastError(ctx, t)
+	vo.LastError = taskError(t)
 	return vo
 }
 
-// lastError 取最近一次失败运行的报错。
-func (s *Service) lastError(ctx context.Context, t *model.Task) *TaskError {
-	// 只有停在「执行出错」的任务才对外报错，避免重跑成功后还挂着旧报错。
+// taskError 取任务上记下的失败原因。只有停在「执行出错」时才对外展示。
+func taskError(t *model.Task) *TaskError {
 	if t.Status != model.TaskStatusFailed {
 		return nil
 	}
-	runs, err := s.repo.ListRunsByTask(ctx, t.ID)
-	if err != nil {
+	msg := strings.TrimSpace(t.ErrorMessage)
+	if msg == "" {
 		return nil
 	}
-	for i := len(runs) - 1; i >= 0; i-- {
-		r := runs[i]
-		if r.Status != model.RunStatusFailed || strings.TrimSpace(r.Error) == "" {
-			continue
-		}
-		return &TaskError{
-			RunID:   r.ID,
-			Kind:    r.Kind,
-			AgentID: r.AgentID,
-			Message: r.Error,
-			At:      r.FinishedAt,
-		}
+	return &TaskError{
+		Kind:    t.ErrorKind,
+		AgentID: t.ErrorAgentID,
+		Message: msg,
+		At:      t.ErrorAt,
 	}
-	return nil
 }
 
 // TaskTodoInput 对话里定好的一条待办。
@@ -623,8 +611,16 @@ func (s *Service) dispatch(taskID uint64) {
 }
 
 // ---------------------------------------------------------------------------
-// 运行记录与事件
+// 执行上下文与事件
 // ---------------------------------------------------------------------------
+
+// agentRun 一轮执行的内存上下文，不落库。
+type agentRun struct {
+	TaskID         uint64
+	Kind           string
+	AgentID        string
+	ConversationID uint64
+}
 
 func (s *Service) nextSeq(taskID uint64) int {
 	s.mu.Lock()
@@ -633,63 +629,29 @@ func (s *Service) nextSeq(taskID uint64) int {
 	return s.seq[taskID]
 }
 
-func (s *Service) startRun(ctx context.Context, t *model.Task, kind, agentID string) *model.Run {
-	run := &model.Run{
-		TaskID:    t.ID,
-		ProjectID: t.ProjectID,
-		UserID:    t.UserID,
-		Kind:      kind,
-		AgentID:   agentID,
-		Status:    model.RunStatusRunning,
-		StartedAt: timex.LocalTime(time.Now()),
-	}
-	if err := s.repo.CreateRun(ctx, run); err != nil {
-		logx.Errorf("ade: create run: %v", err)
-	}
-	return run
+func (s *Service) startRun(t *model.Task, kind, agentID string) *agentRun {
+	s.bus.Begin(t.ID)
+	return &agentRun{TaskID: t.ID, Kind: kind, AgentID: agentID}
 }
 
-func (s *Service) finishRun(ctx context.Context, run *model.Run, status, summary, errMsg string) {
-	if run == nil {
-		return
-	}
-	run.Status = status
-	run.Summary = summary
-	run.Error = errMsg
-	run.FinishedAt = timex.LocalTime(time.Now())
-	if err := s.repo.UpdateRun(ctx, run); err != nil {
-		logx.Errorf("ade: finish run: %v", err)
-	}
-}
-
-// emit 落库并广播一条任务级事件。
-func (s *Service) emit(ctx context.Context, run *model.Run, ev Event) {
+// emit 广播一条任务级事件，并留在内存里供重连回放。
+func (s *Service) emit(run *agentRun, ev Event) {
 	if run != nil {
 		if ev.TaskID == 0 {
 			ev.TaskID = run.TaskID
 		}
-		ev.RunID = run.ID
 		ev.Kind = run.Kind
 		if ev.ConversationID == 0 {
 			ev.ConversationID = run.ConversationID
 		}
 	}
-	seq := s.nextSeq(ev.TaskID)
-	ev.Seq = seq
-	raw, _ := json.Marshal(ev)
-	_ = s.repo.AppendRunEvent(ctx, &model.RunEvent{
-		RunID:   ev.RunID,
-		TaskID:  ev.TaskID,
-		Seq:     seq,
-		Type:    ev.Type,
-		Payload: string(raw),
-	})
+	ev.Seq = s.nextSeq(ev.TaskID)
 	s.bus.Publish(ev)
 }
 
 // logLine 面向用户的运行日志（不是模型事件）。
-func (s *Service) logLine(ctx context.Context, t *model.Task, run *model.Run, text string) {
-	s.emit(ctx, run, Event{TaskID: t.ID, Type: "log", Text: text})
+func (s *Service) logLine(t *model.Task, run *agentRun, text string) {
+	s.emit(run, Event{TaskID: t.ID, Type: "log", Text: text})
 }
 
 // ---------------------------------------------------------------------------
@@ -732,7 +694,7 @@ func channelForRunKind(kind string) string {
 
 // runAgent 建会话、调 Agent 循环、返回最终助手文本。
 // onEvent 收到任务级事件；workspace 为该轮工作目录。
-func (s *Service) runAgent(ctx context.Context, t *model.Task, p *model.Project, run *model.Run, agentID, workspace, content string) (string, error) {
+func (s *Service) runAgent(ctx context.Context, t *model.Task, p *model.Project, run *agentRun, agentID, workspace, content string) (string, error) {
 	m, err := s.resolveModel(ctx, p)
 	if err != nil {
 		return "", err
@@ -769,7 +731,6 @@ func (s *Service) runAgent(ctx context.Context, t *model.Task, p *model.Project,
 	}
 	if run != nil {
 		run.ConversationID = conv.ID
-		_ = s.repo.UpdateRun(ctx, run)
 	}
 
 	runCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 45*time.Minute)
@@ -777,7 +738,7 @@ func (s *Service) runAgent(ctx context.Context, t *model.Task, p *model.Project,
 
 	logic := convlogic.NewChatLogic(runCtx, s.svcCtx)
 	err = logic.Chat(conv.ID, t.UserID, content, agentID, clientID, nil, func(ev agentloop.Event) {
-		s.emit(ctx, run, fromLoop(ev))
+		s.emit(run, fromLoop(ev))
 	})
 	if err != nil {
 		return "", err

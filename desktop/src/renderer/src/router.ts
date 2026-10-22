@@ -7,7 +7,6 @@ import ExecuteView from './views/execute/ExecuteView.vue'
 import TestView from './views/test/TestView.vue'
 import DeployView from './views/deploy/DeployView.vue'
 import TaskPlanView from './views/taskplan/TaskPlanView.vue'
-import RunsView from './views/runs/RunsView.vue'
 import SettingsView from './views/settings/SettingsView.vue'
 import ModelsView from './views/models/ModelsView.vue'
 import HostsView from './views/hosts/HostsView.vue'
@@ -23,7 +22,6 @@ export const router = createRouter({
     { path: '/test', component: TestView },
     { path: '/deploy', component: DeployView },
     { path: '/tasks/:id', component: TaskPlanView },
-    { path: '/runs', component: RunsView },
     { path: '/models', component: ModelsView },
     { path: '/hosts', component: HostsView },
     { path: '/settings', component: SettingsView }
@@ -58,7 +56,6 @@ router.afterEach((to) => {
     '/execute': '执行',
     '/test': '测试',
     '/deploy': '部署',
-    '/runs': '运行记录',
     '/models': '模型',
     '/hosts': '主机',
     '/settings': '设置',

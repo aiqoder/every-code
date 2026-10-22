@@ -45,12 +45,9 @@ func RegisterAdeHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				{Method: http.MethodPost, Path: "/tasks/:id/retry", Handler: ade.RetryTaskHandler(serverCtx)},
 				{Method: http.MethodPost, Path: "/tasks/:id/todos", Handler: ade.AddTodoHandler(serverCtx)},
 				{Method: http.MethodGet, Path: "/tasks/:id/events", Handler: ade.TaskEventsHandler(serverCtx)},
-				{Method: http.MethodGet, Path: "/tasks/:id/runs", Handler: ade.TaskRunsHandler(serverCtx)},
 
 				{Method: http.MethodPatch, Path: "/todos/:id", Handler: ade.UpdateTodoHandler(serverCtx)},
 				{Method: http.MethodDelete, Path: "/todos/:id", Handler: ade.DeleteTodoHandler(serverCtx)},
-
-				{Method: http.MethodGet, Path: "/runs", Handler: ade.RunsHandler(serverCtx)},
 
 				{Method: http.MethodGet, Path: "/skills", Handler: ade.ListSkillsHandler(serverCtx)},
 				{Method: http.MethodGet, Path: "/skills/:id/files", Handler: ade.SkillFilesHandler(serverCtx)},

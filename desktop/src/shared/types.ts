@@ -97,7 +97,6 @@ export interface PendingAskQuestion {
 }
 
 export interface TaskError {
-  runId: number
   kind: string
   agentId: string
   message: string
@@ -131,21 +130,6 @@ export interface Task {
   doneCount: number
   totalCount: number
   lastError?: TaskError | null
-}
-
-export interface RunRecord {
-  id: number
-  taskId: number
-  projectId: number
-  userId: number
-  kind: 'planner' | 'advisor' | 'coder' | 'verifier' | 'reviewer' | 'installer' | 'deploy'
-  agentId: string
-  status: 'running' | 'done' | 'failed' | 'skipped'
-  conversationId: number
-  summary: string
-  error: string
-  startedAt: string
-  finishedAt: string
 }
 
 export interface TaskEvent {

@@ -35,7 +35,7 @@ func (s *Service) runTask(ctx context.Context, taskID uint64) {
 		s.fail(ctx, t, nil, err.Error())
 		return
 	}
-	run := s.startRun(ctx, t, model.RunKindCoder, coder.ID)
+	run := s.startRun(t, model.RunKindCoder, coder.ID)
 	defer func() {
 		if r := recover(); r != nil {
 			s.fail(ctx, t, run, fmt.Sprintf("执行异常：%v", r))
@@ -58,8 +58,8 @@ func (s *Service) runTask(ctx context.Context, taskID uint64) {
 		return
 	}
 
-	s.logLine(ctx, t, run, "开始执行，由开发智能体用终端准备 worktree")
-	out, err := s.runAgent(ctx, t, p, run, coder.ID, workspace, "开始执行当前任务。")
+	s.logLine(t, run, "开始执行，由开发智能体用终端准备 worktree")
+	_, err = s.runAgent(ctx, t, p, run, coder.ID, workspace, "开始执行当前任务。")
 	if fresh, ferr := s.repo.GetTask(ctx, t.ID); ferr == nil {
 		t = fresh
 	}
@@ -73,18 +73,31 @@ func (s *Service) runTask(ctx context.Context, taskID uint64) {
 	}
 
 	t.Status = model.TaskStatusWaitTest
+	t.ErrorKind = ""
+	t.ErrorAgentID = ""
+	t.ErrorMessage = ""
+	t.ErrorAt = timex.LocalTime{}
 	t.UpdatedAt = timex.LocalTime(nowTime())
 	_ = s.repo.UpdateTask(ctx, t)
-	s.finishRun(ctx, run, model.RunStatusDone, summarize(out), "")
-	s.logLine(ctx, t, run, "开发完成，进入待测试")
+	s.logLine(t, run, "开发完成，进入待测试")
 }
 
-func (s *Service) fail(ctx context.Context, t *model.Task, run *model.Run, msg string) {
+func (s *Service) fail(ctx context.Context, t *model.Task, run *agentRun, msg string) {
+	if run == nil {
+		s.bus.Begin(t.ID)
+	}
 	t.Status = model.TaskStatusFailed
+	t.ErrorMessage = msg
+	t.ErrorAt = timex.LocalTime(nowTime())
+	t.ErrorKind = ""
+	t.ErrorAgentID = ""
+	if run != nil {
+		t.ErrorKind = run.Kind
+		t.ErrorAgentID = run.AgentID
+	}
 	t.UpdatedAt = timex.LocalTime(nowTime())
 	_ = s.repo.UpdateTask(ctx, t)
-	s.finishRun(ctx, run, model.RunStatusFailed, "", msg)
-	s.logLine(ctx, t, run, "执行出错："+msg)
+	s.logLine(t, run, "执行出错："+msg)
 }
 
 func firstNonEmpty(list ...string) string {
@@ -94,12 +107,4 @@ func firstNonEmpty(list ...string) string {
 		}
 	}
 	return ""
-}
-
-func summarize(s string) string {
-	r := []rune(strings.TrimSpace(s))
-	if len(r) <= 2000 {
-		return strings.TrimSpace(s)
-	}
-	return string(r[:2000]) + "\n…（已截断）"
 }

@@ -5,7 +5,6 @@ import type {
   DeployHost,
   Project,
   ReleaseRecord,
-  RunRecord,
   SkillMeta,
   Task
 } from '../../../shared/types'
@@ -45,7 +44,6 @@ export const useSessionStore = defineStore('session', () => {
   const systemSkills = ref<SkillMeta[]>([])
   const localSkills = ref<Array<{ id: string; name: string; description: string; path: string }>>([])
   const hosts = ref<DeployHost[]>([])
-  const runs = ref<RunRecord[]>([])
   const releases = ref<ReleaseRecord[]>([])
 
   const currentProjectId = ref(0)
@@ -195,7 +193,7 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function refreshAll(): Promise<void> {
-    await Promise.all([loadProjects(), loadSkills(), loadLocalSkills(), loadHosts(), loadRuns(), loadReleases()])
+    await Promise.all([loadProjects(), loadSkills(), loadLocalSkills(), loadHosts(), loadReleases()])
   }
 
   async function loadProjects(): Promise<void> {
@@ -269,14 +267,6 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function loadRuns(): Promise<void> {
-    try {
-      runs.value = (await adeApi.runs()).list ?? []
-    } catch {
-      runs.value = []
-    }
-  }
-
   async function loadReleases(): Promise<void> {
     try {
       releases.value = (await adeApi.listReleases()).list ?? []
@@ -299,7 +289,6 @@ export const useSessionStore = defineStore('session', () => {
     systemSkills,
     localSkills,
     hosts,
-    runs,
     releases,
     currentProjectId,
     currentProject,
@@ -322,7 +311,6 @@ export const useSessionStore = defineStore('session', () => {
     loadSkills,
     loadLocalSkills,
     loadHosts,
-    loadRuns,
     loadReleases
   }
 })

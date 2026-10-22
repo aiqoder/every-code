@@ -15,7 +15,7 @@ const shell = useShellStore()
 
 const menus: Array<{ id: string; label: string; path: string }> = [
   { id: 'project', label: '项目概况', path: '/project' },
-  { id: 'create', label: '任务', path: '/create' },
+  { id: 'create', label: '任务看板', path: '/create' },
   { id: 'execute', label: '执行', path: '/execute' },
   { id: 'test', label: '测试', path: '/test' },
   { id: 'deploy', label: '部署', path: '/deploy' }

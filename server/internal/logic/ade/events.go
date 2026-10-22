@@ -7,10 +7,14 @@ import (
 	"chengzi-agent-code-server/pkg/agentloop"
 )
 
+// eventLogCap 单个任务在内存里保留的最近事件数，供 SSE 重连回放。
+const eventLogCap = 2000
+
 // EventBus 进程内运行事件广播。SSE 订阅者按任务订阅，断线不影响服务端继续跑。
 type EventBus struct {
 	mu   sync.RWMutex
 	subs map[uint64]map[chan Event]struct{} // taskId -> subscribers
+	log  map[uint64][]Event                 // taskId -> 当前这一轮的事件
 }
 
 // Event 对外事件：任务级包装，附带 run 信息。
@@ -33,11 +37,21 @@ type Event struct {
 
 // NewEventBus 构造事件总线。
 func NewEventBus() *EventBus {
-	return &EventBus{subs: make(map[uint64]map[chan Event]struct{})}
+	return &EventBus{
+		subs: make(map[uint64]map[chan Event]struct{}),
+		log:  make(map[uint64][]Event),
+	}
 }
 
-// Subscribe 订阅某任务的事件流。cancel 幂等。
-func (b *EventBus) Subscribe(taskID uint64) (<-chan Event, func()) {
+// Begin 开始新一轮执行，丢掉上一轮留在内存里的事件。
+func (b *EventBus) Begin(taskID uint64) {
+	b.mu.Lock()
+	delete(b.log, taskID)
+	b.mu.Unlock()
+}
+
+// Subscribe 订阅某任务的事件流，并带回订阅前已经发生的事件。cancel 幂等。
+func (b *EventBus) Subscribe(taskID uint64) (<-chan Event, []Event, func()) {
 	ch := make(chan Event, 128)
 	b.mu.Lock()
 	set, ok := b.subs[taskID]
@@ -46,6 +60,7 @@ func (b *EventBus) Subscribe(taskID uint64) (<-chan Event, func()) {
 		b.subs[taskID] = set
 	}
 	set[ch] = struct{}{}
+	recent := append([]Event(nil), b.log[taskID]...)
 	b.mu.Unlock()
 
 	var once sync.Once
@@ -62,18 +77,22 @@ func (b *EventBus) Subscribe(taskID uint64) (<-chan Event, func()) {
 			close(ch)
 		})
 	}
-	return ch, cancel
+	return ch, recent, cancel
 }
 
 // Publish 非阻塞投递；订阅者过慢时丢弃该帧，避免拖住 Agent 循环。
 func (b *EventBus) Publish(ev Event) {
-	b.mu.RLock()
+	b.mu.Lock()
+	b.log[ev.TaskID] = append(b.log[ev.TaskID], ev)
+	if n := len(b.log[ev.TaskID]); n > eventLogCap {
+		b.log[ev.TaskID] = append([]Event(nil), b.log[ev.TaskID][n-eventLogCap:]...)
+	}
 	set := b.subs[ev.TaskID]
 	chans := make([]chan Event, 0, len(set))
 	for ch := range set {
 		chans = append(chans, ch)
 	}
-	b.mu.RUnlock()
+	b.mu.Unlock()
 	for _, ch := range chans {
 		select {
 		case ch <- ev:

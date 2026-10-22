@@ -64,8 +64,6 @@ func New(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 			&model.Project{},
 			&model.Task{},
 			&model.Todo{},
-			&model.Run{},
-			&model.RunEvent{},
 			&model.DeployHost{},
 			&model.DeployTask{},
 			&model.Release{},
@@ -75,9 +73,12 @@ func New(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 		); err != nil {
 			return nil, fmt.Errorf("auto migrate: %w", err)
 		}
-		if db.Migrator().HasTable("ade_task_timelines") {
-			if err = db.Migrator().DropTable("ade_task_timelines"); err != nil {
-				return nil, fmt.Errorf("drop task timelines: %w", err)
+		for _, name := range []string{"ade_task_timelines", "ade_run_events", "ade_runs"} {
+			if !db.Migrator().HasTable(name) {
+				continue
+			}
+			if err = db.Migrator().DropTable(name); err != nil {
+				return nil, fmt.Errorf("drop %s: %w", name, err)
 			}
 		}
 		if err = migrateConversationLinks(db); err != nil {
@@ -98,8 +99,6 @@ func New(cfg *config.DatabaseConfig) (*gorm.DB, error) {
 			model.Project{},
 			model.Task{},
 			model.Todo{},
-			model.Run{},
-			model.RunEvent{},
 			model.DeployHost{},
 			model.DeployTask{},
 			model.Release{},

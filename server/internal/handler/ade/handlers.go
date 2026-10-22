@@ -621,7 +621,7 @@ func TaskEventsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		// 先订阅再回放，避免回放期间丢帧。
-		events, cancel := s.Bus().Subscribe(t.ID)
+		events, recent, cancel := s.Bus().Subscribe(t.ID)
 		defer cancel()
 
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -639,19 +639,9 @@ func TaskEventsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return nil
 		}
 
-		// 回放最近一次运行的全部事件。
-		runs, _ := s.Repo().ListRunsByTask(r.Context(), t.ID)
-		if len(runs) > 0 {
-			last := runs[len(runs)-1]
-			recent, _ := s.Repo().ListRunEvents(r.Context(), last.ID, 0)
-			for _, item := range recent {
-				var ev adelogic.Event
-				if json.Unmarshal([]byte(item.Payload), &ev) != nil {
-					continue
-				}
-				if err := writeEvent(ev); err != nil {
-					return
-				}
+		for _, ev := range recent {
+			if err := writeEvent(ev); err != nil {
+				return
 			}
 		}
 
@@ -675,44 +665,5 @@ func TaskEventsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 				flusher.Flush()
 			}
 		}
-	}
-}
-
-// TaskRunsHandler GET /api/ade/tasks/:id/runs
-func TaskRunsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		s, err := getService(svcCtx)
-		if err != nil {
-			hresp.WriteFail(w, err.Error(), err)
-			return
-		}
-		t, _, err := loadTask(r, s)
-		if err != nil {
-			hresp.WriteFail(w, err.Error(), err)
-			return
-		}
-		list, err := s.Repo().ListRunsByTask(r.Context(), t.ID)
-		if err != nil {
-			hresp.WriteFail(w, "读取运行记录失败", err)
-			return
-		}
-		hresp.WriteOK(w, map[string]any{"list": list})
-	}
-}
-
-// RunsHandler GET /api/ade/runs 运行记录（侧栏底部）。
-func RunsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		s, err := getService(svcCtx)
-		if err != nil {
-			hresp.WriteFail(w, err.Error(), err)
-			return
-		}
-		list, err := s.Repo().ListRuns(r.Context(), userID(r), 80)
-		if err != nil {
-			hresp.WriteFail(w, "读取运行记录失败", err)
-			return
-		}
-		hresp.WriteOK(w, map[string]any{"list": list})
 	}
 }

@@ -20,6 +20,7 @@ import StatusPill from '../../components/StatusPill.vue'
 import EmptyState from '../../components/EmptyState.vue'
 import Dialog from '../../components/Dialog.vue'
 import type { Task } from '../../../../shared/types'
+import { taskDisplayName } from '../../utils/taskTitle'
 
 const session = useSessionStore()
 const router = useRouter()
@@ -186,7 +187,7 @@ watch(
                 @click="selectTask(task)"
               >
                 <td>
-                  <span class="tr-name ellipsis">{{ task.name || '拆解中…' }}</span>
+                  <span class="tr-name ellipsis">{{ taskDisplayName(task) }}</span>
                 </td>
                 <td class="col-status">
                   <StatusPill :status="task.status" size="sm" />
