@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: macos
+          - os: windows-latest
+            artifact: windows
+          - os: ubuntu-latest
+            artifact: linux
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Linux packaging tools
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg rpm
+
+      - name: Check tag matches package.json version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            echo "失败原因：GITHUB_REF 必须是 tag，当前为 ${GITHUB_REF}。"
+            echo "推送 v*.*.* tag 会自动发布；手动 workflow_dispatch 时请选择对应 tag，不要选择分支。"
+            exit 1
+          fi
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [[ "${TAG}" != "${VERSION}" ]]; then
+            echo "失败原因：tag ${GITHUB_REF_NAME} 去掉 v 后为 ${TAG}，与 package.json version ${VERSION} 不一致。"
+            exit 1
+          fi
+          echo "版本校验通过：${VERSION}"
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - name: Package macOS
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac --x64 --arm64 --publish never
+
+      - name: Package Windows
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Package Linux
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: npx electron-builder --linux --x64 --publish never
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml
+
+  publish:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/*.exe
+            artifacts/*.dmg
+            artifacts/*.zip
+            artifacts/*.AppImage
+            artifacts/*.deb
+            artifacts/*.blockmap
+            artifacts/latest*.yml

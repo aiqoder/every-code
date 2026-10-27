@@ -2,12 +2,16 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { registerLoop } from './loop'
+import { registerUpdater } from './updater'
 
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 960,
-    height: 680,
+    width: 1180,
+    height: 760,
+    minWidth: 880,
+    minHeight: 560,
     show: false,
     autoHideMenuBar: true,
     title: 'Every Code',
@@ -15,7 +19,9 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      // 渲染进程直连 chengzi-agent-server。服务端没有 CORS，桌面窗口需要放行跨域。
+      webSecurity: false
     }
   })
 
@@ -51,8 +57,9 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+  registerLoop()
+  registerUpdater()
 
   createWindow()
 
