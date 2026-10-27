@@ -21,8 +21,8 @@ release/
 *.tsbuildinfo
 .eslintcache
 
-# Go 构建产物
-build/
+# Go 构建产物。仓库根目录的 build/ 是 Electron 打包资源，需要提交。
+/server/build/
 *.exe
 *.dll
 *.so
