@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { onUnmounted } from 'vue'
 import AppHeader from '@/components/AppHeader.vue'
 import LoginDialog from '@/components/LoginDialog.vue'
+import { startScheduleRunner } from '@/views/schedules/runner'
+
+const stopScheduleRunner = startScheduleRunner()
+onUnmounted(stopScheduleRunner)
 </script>
 
 <template>

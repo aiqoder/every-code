@@ -1,33 +1,19 @@
 <script setup lang="ts">
-import { NSelect, type SelectOption } from 'naive-ui'
+import { NRadioButton, NRadioGroup } from 'naive-ui'
 import { themeList, isThemeId } from '@/theme/github'
 import { useThemeStore } from '@/stores/themeStore'
 
 const themeStore = useThemeStore()
 
-const options: SelectOption[] = themeList.map((item) => ({
-  label: item.label,
-  value: item.id
-}))
-
-function onChange(value: string | number | Array<string | number> | null): void {
+function onChange(value: string | number | boolean | null): void {
   if (typeof value === 'string' && isThemeId(value)) themeStore.setTheme(value)
 }
 </script>
 
 <template>
-  <n-select
-    class="theme-switch"
-    size="small"
-    :value="themeStore.current"
-    :options="options"
-    @update:value="onChange"
-  />
+  <n-radio-group :value="themeStore.current" size="small" @update:value="onChange">
+    <n-radio-button v-for="item in themeList" :key="item.id" :value="item.id">
+      {{ item.label }}
+    </n-radio-button>
+  </n-radio-group>
 </template>
-
-<style scoped>
-.theme-switch {
-  width: 12.5rem;
-  flex: 0 0 auto;
-}
-</style>

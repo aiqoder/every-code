@@ -9,8 +9,24 @@ const router = createRouter({
       children: [
         {
           path: '',
-          name: 'chat',
-          component: () => import('@/views/chat/ChatView.vue')
+          component: () => import('@/views/chat/ChatView.vue'),
+          children: [
+            {
+              path: '',
+              name: 'chat',
+              component: { render: () => null }
+            },
+            {
+              path: 'schedules',
+              name: 'schedules',
+              component: () => import('@/views/schedules/ScheduleView.vue')
+            },
+            {
+              path: 'schedules/:id',
+              name: 'schedule-detail',
+              component: () => import('@/views/schedules/ScheduleDetailView.vue')
+            }
+          ]
         },
         {
           path: 'agents',

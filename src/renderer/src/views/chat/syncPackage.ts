@@ -28,6 +28,7 @@ export async function syncPackageAgent(pkg: LoopPackage): Promise<number> {
 
 function freshBody(pkg: LoopPackage): AgentSaveBody {
   return {
+    agentId: packageAgentSlug(pkg),
     name: pkg.name,
     description: pkg.description,
     systemPrompt: pkg.systemPrompt,
@@ -41,6 +42,7 @@ function freshBody(pkg: LoopPackage): AgentSaveBody {
 
 function mergePackage(current: AgentDetail, pkg: LoopPackage): AgentSaveBody {
   const body = toAgentSaveBody(current, [])
+  if (!body.agentId.trim()) body.agentId = packageAgentSlug(pkg)
   body.name = pkg.name
   body.description = pkg.description
   body.systemPrompt = pkg.systemPrompt
@@ -111,4 +113,20 @@ function skillInputs(pkg: LoopPackage): AgentSkillInput[] {
 
 function isMissing(err: unknown): boolean {
   return err instanceof Error && err.message.includes('不存在')
+}
+
+const agentIdPattern = /^[A-Za-z]+(-[A-Za-z]+)*$/
+
+/** 插件 id 转成服务端接受的标识：非字母收成中划线，数字丢掉。 */
+function packageAgentSlug(pkg: { id: string; name: string }): string {
+  return slugFrom(pkg.id) || slugFrom(pkg.name) || 'agent'
+}
+
+function slugFrom(raw: string): string {
+  const trimmed = raw.trim()
+  if (agentIdPattern.test(trimmed) && trimmed.length <= 64) return trimmed
+  const parts = trimmed.split(/[^A-Za-z]+/).filter((part) => part.length > 0)
+  let slug = parts.join('-')
+  if (slug.length > 64) slug = slug.slice(0, 64).replace(/-+$/, '')
+  return agentIdPattern.test(slug) ? slug : ''
 }

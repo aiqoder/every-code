@@ -1,7 +1,33 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import DOMPurify from 'dompurify'
 import { NButton, NCard, NProgress } from 'naive-ui'
 import type { UpdateStatus } from '@shared/updater'
+
+const NOTES_TAGS = ['p', 'br', 'strong', 'em', 'b', 'i', 'a', 'ul', 'ol', 'li', 'code']
+
+function looksLikeHtml(notes: string): boolean {
+  return /<\/?[a-z][^>]*>/i.test(notes)
+}
+
+function sanitizeNotes(notes: string): string {
+  const clean = DOMPurify.sanitize(notes, {
+    ALLOWED_TAGS: NOTES_TAGS,
+    ALLOWED_ATTR: ['href']
+  })
+  const root = document.createElement('div')
+  root.innerHTML = clean
+  for (const anchor of root.querySelectorAll('a')) {
+    const href = anchor.getAttribute('href') ?? ''
+    if (!/^https?:\/\//i.test(href)) {
+      anchor.replaceWith(document.createTextNode(anchor.textContent ?? ''))
+      continue
+    }
+    anchor.setAttribute('target', '_blank')
+    anchor.setAttribute('rel', 'noopener noreferrer')
+  }
+  return root.innerHTML
+}
 
 const bridgeReady = typeof window !== 'undefined' && Boolean(window.api?.updater)
 const currentVersion = ref('')
@@ -25,8 +51,20 @@ const percent = computed(() => {
   return Math.round(Math.min(100, Math.max(0, value)))
 })
 
-const notesPreview = computed(() => {
+const notesHtml = computed(() => {
   if (status.value.state !== 'available') return ''
+  const notes = status.value.releaseNotes.trim()
+  if (!notes || !looksLikeHtml(notes)) return ''
+  const html = sanitizeNotes(notes)
+  const text = html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .trim()
+  return text ? html : ''
+})
+
+const notesPreview = computed(() => {
+  if (status.value.state !== 'available' || notesHtml.value) return ''
   const notes = status.value.releaseNotes.trim()
   if (!notes) return ''
   if (notes.length <= 280) return notes
@@ -164,7 +202,10 @@ onUnmounted(() => {
           <p class="panel-title">{{ panelTitle }}</p>
           <n-button v-if="dismissible" size="tiny" quaternary @click="dismiss">关闭</n-button>
         </div>
-        <p v-if="status.state === 'available'" class="notes">
+        <!-- 发布说明来自 GitHub，已用 DOMPurify 去掉脚本和未知标签 -->
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <div v-if="status.state === 'available' && notesHtml" class="notes notes-html" v-html="notesHtml" />
+        <p v-else-if="status.state === 'available'" class="notes">
           {{ notesPreview || '暂无发布说明' }}
         </p>
         <n-progress
@@ -277,6 +318,25 @@ onUnmounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
   user-select: text;
+}
+
+.notes-html {
+  white-space: normal;
+}
+
+.notes-html :deep(p) {
+  margin: 0;
+}
+
+.notes-html :deep(a) {
+  color: var(--ec-accent, #1f6feb);
+  overflow-wrap: anywhere;
+}
+
+.notes-html :deep(ul),
+.notes-html :deep(ol) {
+  margin: 4px 0 0;
+  padding-left: 1.1em;
 }
 
 .hint {

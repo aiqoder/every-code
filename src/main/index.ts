@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerLoop } from './loop'
+import { registerSchedule } from './schedule'
 import { registerUpdater } from './updater'
 
 function createWindow(): void {
@@ -83,6 +84,7 @@ if (!hasSingleInstanceLock) {
       BrowserWindow.fromWebContents(event.sender)?.setBackgroundColor(color)
     })
     registerLoop()
+    registerSchedule()
     registerUpdater()
 
     createWindow()

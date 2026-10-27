@@ -21,7 +21,14 @@ const items = computed(() =>
   }))
 )
 
-function onUnavailable(name: (typeof nav)[number]['name'], event: MouseEvent) {
+const chatRoutes = new Set(['chat', 'schedules', 'schedule-detail'])
+
+function itemActive(name: (typeof nav)[number]['name']): boolean {
+  if (name === 'chat') return chatRoutes.has(String(route.name))
+  return route.name === name
+}
+
+function onUnavailable(name: (typeof nav)[number]['name'], event: MouseEvent): void {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return
   event.preventDefault()
   if (!router.hasRoute(name)) return
@@ -39,7 +46,7 @@ function onUnavailable(name: (typeof nav)[number]['name'], event: MouseEvent) {
       <template v-for="item in items" :key="item.name">
         <router-link
           v-if="item.registered"
-          v-slot="{ href, navigate, isExactActive }"
+          v-slot="{ href, navigate }"
           :to="{ name: item.name }"
           custom
         >
@@ -47,11 +54,11 @@ function onUnavailable(name: (typeof nav)[number]['name'], event: MouseEvent) {
             :href="href"
             class="rounded-md px-2.5 py-1 focus-visible:[outline:2px_solid_var(--ec-accent)] focus-visible:[outline-offset:2px]"
             :class="
-              isExactActive
+              itemActive(item.name)
                 ? 'bg-[color-mix(in_srgb,var(--ec-accent)_16%,transparent)] text-[var(--ec-accent)]'
                 : 'text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)]'
             "
-            :aria-current="isExactActive ? 'page' : undefined"
+            :aria-current="itemActive(item.name) ? 'page' : undefined"
             @click="navigate"
           >
             {{ item.label }}

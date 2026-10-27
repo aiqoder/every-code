@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { listAgents, listModels, type AgentItem, type ModelItem } from '@/api/catalog'
+import { useRoute, useRouter } from 'vue-router'
+import {
+  listAgents,
+  listModels,
+  resolveAgentKey,
+  type AgentItem,
+  type ModelItem
+} from '@/api/catalog'
 import { answerQuestion, streamChat } from '@/api/chat'
 import { syncInstalledPackages } from '@/views/agents/syncInstalled'
 import {
@@ -10,7 +17,7 @@ import {
   listConversations,
   type Conversation
 } from '@/api/conversations'
-import { openClientSocket, type ClientSocket, type SocketStatus } from '@/lib/clientSocket'
+import { retainClientSocket, type SocketStatus } from '@/lib/clientSocket'
 import { useSessionStore } from '@/stores/sessionStore'
 import { applyChatEvent, messagesToTimeline } from './applyEvent'
 import ChatComposer from './components/ChatComposer.vue'
@@ -19,6 +26,8 @@ import ConversationSidebar from './components/ConversationSidebar.vue'
 import { nextId, type QuestionAnswerPayload, type TimelineItem } from './types'
 
 const session = useSessionStore()
+const route = useRoute()
+const router = useRouter()
 const agents = ref<AgentItem[]>([])
 const models = ref<ModelItem[]>([])
 const conversations = ref<Conversation[]>([])
@@ -31,9 +40,12 @@ const sending = ref(false)
 const errorText = ref('')
 const socketStatus = ref<SocketStatus>('idle')
 const scroller = ref<HTMLElement | null>(null)
+const composerSeed = ref('')
+const composerSeedKey = ref(0)
 
-let socket: ClientSocket | null = null
+let releaseSocket: (() => void) | null = null
 let abort: AbortController | null = null
+const isChat = computed(() => route.name === 'chat')
 const accountLabel = computed(() => {
   try {
     return new URL(session.apiBase).host
@@ -52,6 +64,7 @@ onMounted(async () => {
     workspace.value = (await window.api.loop.getWorkspace()) || ''
   }
   if (session.loggedIn) await boot()
+  else await applyIntent()
 })
 
 watch(
@@ -62,14 +75,29 @@ watch(
 )
 
 onUnmounted(() => {
-  socket?.close()
+  releaseSocket?.()
+  releaseSocket = null
   abort?.abort()
 })
 
+watch(
+  () => [route.query.draft, route.query.conversation],
+  () => {
+    void applyIntent()
+  }
+)
+
+function bindSocket(): void {
+  releaseSocket?.()
+  releaseSocket = retainClientSocket(session.clientId, (status) => {
+    socketStatus.value = status
+  })
+}
+
 function onLogout(): void {
   abort?.abort()
-  socket?.close()
-  socket = null
+  releaseSocket?.()
+  releaseSocket = null
   session.logout()
   conversations.value = []
   timeline.value = []
@@ -77,10 +105,7 @@ function onLogout(): void {
 }
 
 async function boot(): Promise<void> {
-  socket?.close()
-  socket = openClientSocket(session.clientId, (status) => {
-    socketStatus.value = status
-  })
+  bindSocket()
   errorText.value = ''
   const [agentList, modelList, conversationList] = await Promise.all([
     listAgents().catch(() => []),
@@ -100,9 +125,38 @@ async function boot(): Promise<void> {
   } catch (err) {
     errorText.value = err instanceof Error ? err.message : '同步智能体失败'
   }
-  if (!agentId.value && agents.value[0]) agentId.value = String(agents.value[0].id)
+  agentId.value = resolveAgentKey(agentId.value, agents.value)
   if (!modelId.value && modelList[0]) modelId.value = modelList[0].id
-  if (conversationList[0]) await openConversation(conversationList[0].id)
+  if (typeof route.query.conversation !== 'string' && conversationList[0]) {
+    await openConversation(conversationList[0].id)
+  }
+  await applyIntent()
+}
+
+async function applyIntent(): Promise<void> {
+  const draft = route.query.draft
+  const raw = route.query.conversation
+  if (typeof draft !== 'string' && typeof raw !== 'string') return
+  if (typeof draft === 'string' && draft) {
+    composerSeed.value = draft
+    composerSeedKey.value += 1
+  }
+  const id = typeof raw === 'string' ? Number(raw) : NaN
+  const query = { ...route.query }
+  delete query.draft
+  delete query.conversation
+  await router.replace({ query })
+  if (session.loggedIn && Number.isFinite(id) && id > 0) await openConversation(id)
+}
+
+async function selectConversation(id: number): Promise<void> {
+  if (route.name !== 'chat') await router.push({ name: 'chat' })
+  await openConversation(id)
+}
+
+async function createConversationFromNav(): Promise<void> {
+  if (route.name !== 'chat') await router.push({ name: 'chat' })
+  startNew()
 }
 
 async function openConversation(id: number): Promise<void> {
@@ -307,12 +361,12 @@ function numberOrNull(value: string | null): number | null {
       :active-id="activeId"
       :user-name="accountLabel"
       :socket-status="socketStatus"
-      @select="openConversation"
-      @create="startNew"
+      @select="selectConversation"
+      @create="createConversationFromNav"
       @remove="removeConversation"
       @logout="onLogout"
     />
-    <section class="flex min-w-0 flex-1 flex-col">
+    <section v-show="isChat" class="flex min-w-0 flex-1 flex-col">
       <header
         class="ec-skin flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--ec-border)] px-5"
       >
@@ -339,10 +393,13 @@ function numberOrNull(value: string | null): number | null {
         :models="models"
         :workspace="workspace"
         :sending="sending"
+        :seed="composerSeed"
+        :seed-key="composerSeedKey"
         @send="send"
         @stop="stop"
         @pick-workspace="pickWorkspace"
       />
     </section>
+    <router-view v-if="!isChat" class="min-h-0 min-w-0 flex-1" />
   </div>
 </template>

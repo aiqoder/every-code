@@ -42,6 +42,7 @@ export interface AgentSkillInput {
 }
 
 export interface AgentSaveBody {
+  agentId: string
   name: string
   description: string
   systemPrompt: string
@@ -88,6 +89,7 @@ interface AgentSkillView {
 
 export interface AgentDetail {
   id: number
+  agentId: string
   name: string
   description: string
   systemPrompt: string
@@ -118,6 +120,7 @@ function normalizeAgent(data: Partial<AgentDetail> | null, fallbackId: number): 
   if (!data || typeof data !== 'object') throw new Error('智能体不存在')
   return {
     id: typeof data.id === 'number' ? data.id : fallbackId,
+    agentId: typeof data.agentId === 'string' ? data.agentId.trim() : '',
     name: data.name ?? '',
     description: data.description ?? '',
     systemPrompt: data.systemPrompt ?? '',
@@ -137,6 +140,7 @@ export function updateAgent(id: number, body: AgentSaveBody): Promise<AgentDetai
 /** 把 GET 结果映射回 PUT 体，并在末尾追加新技能。已有工具原样带回，不新增本地工具。 */
 export function toAgentSaveBody(agent: AgentDetail, extraSkills: AgentSkillInput[]): AgentSaveBody {
   return {
+    agentId: agent.agentId ?? '',
     name: agent.name ?? '',
     description: agent.description ?? '',
     systemPrompt: agent.systemPrompt ?? '',

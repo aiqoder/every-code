@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { LoopAgentHome, LoopInventory, LoopMessage, LoopPackage } from '../shared/loop'
+import type {
+  ScheduleDraft,
+  ScheduleFire,
+  ScheduleRun,
+  ScheduleRunPatch,
+  ScheduleState,
+  ScheduledTask
+} from '../shared/schedule'
 import type { UpdateCheckResult, UpdateStatus } from '../shared/updater'
 
 const api = {
@@ -21,6 +29,26 @@ const api = {
     setPackageRemoteId: (id: string, remoteId: number): Promise<LoopPackage> =>
       ipcRenderer.invoke('loop:set-package-remote', id, remoteId),
     openToolsDir: (): Promise<void> => ipcRenderer.invoke('loop:open-tools-dir')
+  },
+  schedule: {
+    state: (): Promise<ScheduleState> => ipcRenderer.invoke('schedule:state'),
+    save: (draft: ScheduleDraft): Promise<ScheduledTask> =>
+      ipcRenderer.invoke('schedule:save', draft),
+    remove: (ids: string[]): Promise<void> => ipcRenderer.invoke('schedule:remove', ids),
+    setEnabled: (id: string, enabled: boolean): Promise<ScheduledTask> =>
+      ipcRenderer.invoke('schedule:enabled', id, enabled),
+    tick: (): Promise<ScheduleFire[]> => ipcRenderer.invoke('schedule:tick'),
+    run: (id: string): Promise<ScheduleFire> => ipcRenderer.invoke('schedule:run', id),
+    finish: (runId: string, patch: ScheduleRunPatch): Promise<ScheduleRun> =>
+      ipcRenderer.invoke('schedule:finish', runId, patch),
+    reap: (): Promise<void> => ipcRenderer.invoke('schedule:reap'),
+    removeRuns: (ids: string[]): Promise<void> => ipcRenderer.invoke('schedule:remove-runs', ids),
+    archiveRuns: (ids: string[], archived: boolean): Promise<void> =>
+      ipcRenderer.invoke('schedule:archive-runs', ids, archived),
+    getNotify: (): Promise<boolean> => ipcRenderer.invoke('schedule:notify'),
+    setNotify: (value: boolean): Promise<boolean> =>
+      ipcRenderer.invoke('schedule:set-notify', value),
+    pickDirectory: (): Promise<string> => ipcRenderer.invoke('schedule:pick-directory')
   },
   files: {
     pathForFile: (file: File): string => webUtils.getPathForFile(file)

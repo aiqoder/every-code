@@ -7,6 +7,7 @@ export interface Conversation {
   modelName: string
   clientId: string
   workspace: string
+  createdAt?: string
   updatedAt?: string
 }
 

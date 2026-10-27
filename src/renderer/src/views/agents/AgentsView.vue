@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { NButton } from 'naive-ui'
-import { listAgents, type AgentItem } from '@/api/catalog'
+import { NButton, useMessage } from 'naive-ui'
+import { listAgents, resolveAgentKey, type AgentItem } from '@/api/catalog'
 import { useSessionStore } from '@/stores/sessionStore'
 import type { LoopPackage } from '@shared/loop'
 import { syncPackageAgent } from '@/views/chat/syncPackage'
@@ -9,12 +9,14 @@ import InstallPackagePanel from './components/InstallPackagePanel.vue'
 import { syncInstalledPackages } from './syncInstalled'
 
 const session = useSessionStore()
+const message = useMessage()
 const agents = ref<AgentItem[]>([])
 const packages = ref<LoopPackage[]>([])
 const toolsDir = ref('')
 const toolNotes = ref<string[]>([])
 const agentId = ref(localStorage.getItem('everycode.agentId') || '')
 const packageBusy = ref(false)
+const actionId = ref('')
 const errorText = ref('')
 const installOpen = ref(false)
 const installError = ref('')
@@ -42,12 +44,10 @@ const focus = computed(() => packages.value.find((item) => item.id === focusId.v
 watch(agentId, (value) => localStorage.setItem('everycode.agentId', value))
 
 watch(
-  [agentId, packages],
+  [agentId, packages, agents],
   () => {
     if (focusId.value && packages.value.some((item) => item.id === focusId.value)) return
-    const match = packages.value.find(
-      (item) => item.remoteId != null && String(item.remoteId) === agentId.value
-    )
+    const match = packages.value.find((item) => packageActive(item))
     if (match) focusId.value = match.id
   },
   { immediate: true }
@@ -91,8 +91,14 @@ function colorOf(name: string): string {
   return palette[index]
 }
 
+function slugForPackage(item: LoopPackage): string {
+  if (item.remoteId == null) return ''
+  return agents.value.find((agent) => agent.id === item.remoteId)?.agentId || ''
+}
+
 function packageActive(item: LoopPackage): boolean {
-  return item.remoteId != null && String(item.remoteId) === agentId.value
+  const slug = slugForPackage(item)
+  return slug !== '' && slug === agentId.value
 }
 
 function columnHint(field: LoopPackage['env'][number]): string {
@@ -114,6 +120,7 @@ async function boot(): Promise<void> {
   } catch (err) {
     errorText.value = err instanceof Error ? err.message : '同步智能体失败'
   }
+  agentId.value = resolveAgentKey(agentId.value, agents.value)
 }
 
 async function loadHome(): Promise<void> {
@@ -140,8 +147,11 @@ async function publishPackage(pkg: LoopPackage, select: boolean): Promise<void> 
     const updated = await window.api.loop.setPackageRemoteId(pkg.id, remoteId)
     if (updated) replacePackage(updated)
   }
-  if (select) agentId.value = String(remoteId)
   agents.value = await listAgents().catch(() => agents.value)
+  if (select) {
+    const slug = agents.value.find((item) => item.id === remoteId)?.agentId || ''
+    if (slug) agentId.value = slug
+  }
 }
 
 function openInstall(): void {
@@ -184,8 +194,12 @@ async function onInstallFiles(files: File[]): Promise<void> {
   }
 }
 
-function onSelectServerAgent(id: string): void {
-  agentId.value = id
+function onSelectServerAgent(item: AgentItem): void {
+  if (!item.agentId) {
+    errorText.value = '这个智能体还没有可用的标识'
+    return
+  }
+  agentId.value = item.agentId
   focusId.value = ''
   errorText.value = ''
 }
@@ -195,7 +209,12 @@ async function onSelectPackage(id: string): Promise<void> {
   if (!pkg) return
   focusId.value = id
   if (pkg.remoteId) {
-    agentId.value = String(pkg.remoteId)
+    const slug = slugForPackage(pkg)
+    if (!slug) {
+      errorText.value = '这个智能体还没有可用的标识'
+      return
+    }
+    agentId.value = slug
     errorText.value = ''
     return
   }
@@ -214,9 +233,29 @@ async function onSelectPackage(id: string): Promise<void> {
   }
 }
 
+async function onReregister(id: string): Promise<void> {
+  const pkg = packages.value.find((item) => item.id === id)
+  if (!pkg || actionId.value || packageBusy.value) return
+  if (!session.loggedIn) {
+    errorText.value = '请先登录，再把这个智能体同步到服务器'
+    return
+  }
+  actionId.value = id
+  errorText.value = ''
+  try {
+    await publishPackage(pkg, false)
+    message.success(`已更新「${pkg.name}」在服务器上的登记`)
+  } catch (err) {
+    errorText.value = err instanceof Error ? err.message : '重新注册失败'
+  } finally {
+    actionId.value = ''
+  }
+}
+
 async function onUninstallPackage(id: string): Promise<void> {
-  if (!window.api?.loop?.uninstallPackage) return
+  if (!window.api?.loop?.uninstallPackage || actionId.value || packageBusy.value) return
   if (!window.confirm('卸载这个智能体插件？本机文件会删除，服务器上已同步的智能体仍保留。')) return
+  actionId.value = id
   errorText.value = ''
   try {
     await window.api.loop.uninstallPackage(id)
@@ -224,6 +263,8 @@ async function onUninstallPackage(id: string): Promise<void> {
     if (focusId.value === id) focusId.value = ''
   } catch (err) {
     errorText.value = err instanceof Error ? err.message : '卸载失败'
+  } finally {
+    actionId.value = ''
   }
 }
 
@@ -256,8 +297,8 @@ async function onOpenToolsDir(): Promise<void> {
 
 <template>
   <div class="relative flex h-full min-h-0 flex-col text-[var(--ec-fg)]">
-    <div class="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
-      <div class="flex items-center justify-between gap-2 px-3 pt-4">
+    <div class="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
+      <div class="flex items-center justify-between gap-2 px-6 pt-4">
         <p class="text-sm">智能体</p>
         <n-button size="small" type="primary" :disabled="packageBusy" @click="openInstall">
           安装
@@ -265,7 +306,7 @@ async function onOpenToolsDir(): Promise<void> {
       </div>
       <p
         v-if="errorText"
-        class="mx-3 mt-3 rounded-md border border-[color-mix(in_srgb,var(--ec-danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--ec-danger)_12%,transparent)] px-3 py-2 text-sm text-[var(--ec-danger)]"
+        class="mx-6 mt-3 rounded-md border border-[color-mix(in_srgb,var(--ec-danger)_35%,transparent)] bg-[color-mix(in_srgb,var(--ec-danger)_12%,transparent)] px-3 py-2 text-sm text-[var(--ec-danger)]"
       >
         {{ errorText }}
       </p>
@@ -274,100 +315,171 @@ async function onOpenToolsDir(): Promise<void> {
         type="search"
         placeholder="搜索智能体"
         aria-label="搜索智能体"
-        class="mx-3 mt-3 h-8 rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 text-xs outline-none"
+        class="mx-6 mt-3 h-8 rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 text-xs outline-none"
       />
-      <div class="mt-2 min-h-0 flex-1 overflow-auto px-2 pb-3">
-        <p class="px-1 pt-2 text-xs text-[var(--ec-fg-muted)]">已安装</p>
-        <div v-for="item in shownPackages" :key="item.id" class="group mt-1">
-          <button
-            type="button"
-            class="flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left"
+      <div class="mt-3 min-h-0 flex-1 overflow-auto px-6 pb-4">
+        <p class="text-xs text-[var(--ec-fg-muted)]">已安装</p>
+        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <article
+            v-for="item in shownPackages"
+            :key="item.id"
+            class="flex flex-col rounded-xl border px-3 py-3"
             :class="
               packageActive(item)
-                ? 'bg-[color-mix(in_srgb,var(--ec-accent)_18%,transparent)]'
-                : 'hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)]'
+                ? 'border-[var(--ec-accent)] bg-[color-mix(in_srgb,var(--ec-accent)_12%,transparent)]'
+                : 'border-[var(--ec-border)] ec-skin-raised'
             "
-            @click="onSelectPackage(item.id)"
           >
-            <img
-              v-if="item.avatar"
-              :src="item.avatar"
-              alt=""
-              class="h-9 w-9 shrink-0 rounded-full object-cover"
-            />
+            <button
+              type="button"
+              class="flex w-full items-start gap-2 text-left"
+              @click="onSelectPackage(item.id)"
+            >
+              <img
+                v-if="item.avatar"
+                :src="item.avatar"
+                alt=""
+                class="h-9 w-9 shrink-0 rounded-full object-cover"
+              />
+              <span
+                v-else
+                class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-medium text-white"
+                :style="{ background: colorOf(item.name) }"
+              >
+                {{ initial(item.name) }}
+              </span>
+              <span class="min-w-0 flex-1">
+                <span class="flex items-baseline gap-2">
+                  <span class="truncate text-sm">{{ item.name }}</span>
+                  <span class="shrink-0 text-[11px] text-[var(--ec-fg-muted)]">{{
+                    item.version
+                  }}</span>
+                </span>
+                <span class="mt-0.5 line-clamp-2 text-xs leading-5 text-[var(--ec-fg-muted)]">
+                  {{ item.description || '暂无简介' }}
+                </span>
+                <span
+                  v-if="!item.remoteId"
+                  class="mt-0.5 block text-[11px] text-[var(--ec-attention)]"
+                >
+                  未同步
+                </span>
+                <span
+                  v-else-if="item.env.length && !item.envReady"
+                  class="mt-0.5 block text-[11px] text-[var(--ec-attention)]"
+                >
+                  还有环境变量没填
+                </span>
+              </span>
+            </button>
+            <form
+              v-if="focus?.id === item.id && item.env.length"
+              class="mt-3 border-t border-[var(--ec-border)] pt-3"
+              @submit.prevent="onSavePackageEnv"
+            >
+              <p class="text-xs text-[var(--ec-fg-muted)]">环境变量</p>
+              <label v-for="field in item.env" :key="field.name" class="mt-2 block">
+                <span class="text-xs">
+                  {{ field.label || field.name }}
+                  <span v-if="field.required" class="text-[var(--ec-danger)]">*</span>
+                </span>
+                <textarea
+                  v-if="field.type === 'list'"
+                  v-model="envDraft[field.name]"
+                  rows="3"
+                  class="mt-1 w-full resize-y rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 py-1 text-xs outline-none"
+                  :placeholder="columnHint(field)"
+                />
+                <input
+                  v-else
+                  v-model="envDraft[field.name]"
+                  :type="field.secret ? 'password' : 'text'"
+                  class="mt-1 h-8 w-full rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 text-xs outline-none"
+                />
+              </label>
+              <n-button class="mt-2" size="tiny" attr-type="submit" :loading="packageBusy">
+                保存
+              </n-button>
+            </form>
+            <div class="mt-2 flex justify-end gap-1">
+              <button
+                type="button"
+                title="重新注册"
+                aria-label="重新注册"
+                class="grid h-7 w-7 place-items-center rounded-md text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)] disabled:opacity-40"
+                :disabled="packageBusy || actionId !== ''"
+                @click="onReregister(item.id)"
+              >
+                <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" aria-hidden="true">
+                  <path
+                    d="M13.5 8a5.5 5.5 0 0 1-9.4 3.9M2.5 8a5.5 5.5 0 0 1 9.4-3.9"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M13.6 3.2v3.1H10.5M2.4 12.8V9.7h3.1"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                title="卸载"
+                aria-label="卸载"
+                class="grid h-7 w-7 place-items-center rounded-md text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-danger)] disabled:opacity-40"
+                :disabled="packageBusy || actionId !== ''"
+                @click="onUninstallPackage(item.id)"
+              >
+                <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" aria-hidden="true">
+                  <path
+                    d="M3.5 4.5h9M6.5 4.5V3.2h3V4.5M4.5 4.5l.6 8.2h5.8l.6-8.2"
+                    stroke="currentColor"
+                    stroke-width="1.4"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </article>
+        </div>
+        <p v-if="shownPackages.length === 0" class="py-3 text-xs text-[var(--ec-fg-muted)]">
+          {{ query.trim() ? '没有匹配的插件' : '还没有安装插件' }}
+        </p>
+
+        <p class="pt-5 text-xs text-[var(--ec-fg-muted)]">服务器</p>
+        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <button
+            v-for="item in shownAgents"
+            :key="item.id"
+            type="button"
+            class="flex items-start gap-2 rounded-xl border px-3 py-3 text-left"
+            :class="
+              item.agentId && item.agentId === agentId
+                ? 'border-[var(--ec-accent)] bg-[color-mix(in_srgb,var(--ec-accent)_12%,transparent)]'
+                : 'border-[var(--ec-border)] ec-skin-raised hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]'
+            "
+            @click="onSelectServerAgent(item)"
+          >
             <span
-              v-else
               class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-medium text-white"
               :style="{ background: colorOf(item.name) }"
             >
               {{ initial(item.name) }}
             </span>
-            <span class="min-w-0 flex-1">
-              <span class="flex items-baseline gap-2">
-                <span class="truncate text-sm">{{ item.name }}</span>
-                <span class="shrink-0 text-[11px] text-[var(--ec-fg-muted)]">{{
-                  item.version
-                }}</span>
-              </span>
-              <span class="mt-0.5 block truncate text-xs text-[var(--ec-fg-muted)]">
+            <span class="min-w-0">
+              <span class="block truncate text-sm">{{ item.name }}</span>
+              <span class="mt-0.5 line-clamp-2 text-xs leading-5 text-[var(--ec-fg-muted)]">
                 {{ item.description || '暂无简介' }}
-              </span>
-              <span
-                v-if="!item.remoteId"
-                class="mt-0.5 block text-[11px] text-[var(--ec-attention)]"
-              >
-                未同步
-              </span>
-              <span
-                v-else-if="item.env.length && !item.envReady"
-                class="mt-0.5 block text-[11px] text-[var(--ec-attention)]"
-              >
-                还有环境变量没填
               </span>
             </span>
           </button>
-          <div class="flex justify-end px-2">
-            <n-button
-              size="tiny"
-              quaternary
-              class="opacity-0 group-hover:opacity-100"
-              @click="onUninstallPackage(item.id)"
-            >
-              卸载
-            </n-button>
-          </div>
         </div>
-        <p v-if="shownPackages.length === 0" class="px-2 py-3 text-xs text-[var(--ec-fg-muted)]">
-          {{ query.trim() ? '没有匹配的插件' : '还没有安装插件' }}
-        </p>
-
-        <p class="px-1 pt-4 text-xs text-[var(--ec-fg-muted)]">服务器</p>
-        <button
-          v-for="item in shownAgents"
-          :key="item.id"
-          type="button"
-          class="mt-1 flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left"
-          :class="
-            String(item.id) === agentId
-              ? 'bg-[color-mix(in_srgb,var(--ec-accent)_18%,transparent)]'
-              : 'hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)]'
-          "
-          @click="onSelectServerAgent(String(item.id))"
-        >
-          <span
-            class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-medium text-white"
-            :style="{ background: colorOf(item.name) }"
-          >
-            {{ initial(item.name) }}
-          </span>
-          <span class="min-w-0">
-            <span class="block truncate text-sm">{{ item.name }}</span>
-            <span class="mt-0.5 block truncate text-xs text-[var(--ec-fg-muted)]">
-              {{ item.description || '暂无简介' }}
-            </span>
-          </span>
-        </button>
-        <p v-if="shownAgents.length === 0" class="px-2 py-3 text-xs text-[var(--ec-fg-muted)]">
+        <p v-if="shownAgents.length === 0" class="py-3 text-xs text-[var(--ec-fg-muted)]">
           {{
             query.trim()
               ? '没有匹配的智能体'
@@ -376,51 +488,23 @@ async function onOpenToolsDir(): Promise<void> {
                 : '登录后显示服务器上的智能体'
           }}
         </p>
+
+        <p
+          v-for="note in toolNotes.slice(0, 3)"
+          :key="note"
+          class="mt-4 text-xs leading-5 text-[var(--ec-attention)]"
+        >
+          {{ note }}
+        </p>
+        <button
+          type="button"
+          class="mt-3 text-left text-xs text-[var(--ec-fg-muted)]"
+          :title="toolsDir"
+          @click="onOpenToolsDir"
+        >
+          自定义工具目录
+        </button>
       </div>
-
-      <form
-        v-if="focus && focus.env.length"
-        class="border-t border-[var(--ec-border)] px-3 py-3"
-        @submit.prevent="onSavePackageEnv"
-      >
-        <p class="text-xs text-[var(--ec-fg-muted)]">{{ focus.name }} 的环境变量</p>
-        <label v-for="field in focus.env" :key="field.name" class="mt-2 block">
-          <span class="text-xs">
-            {{ field.label || field.name }}
-            <span v-if="field.required" class="text-[var(--ec-danger)]">*</span>
-          </span>
-          <textarea
-            v-if="field.type === 'list'"
-            v-model="envDraft[field.name]"
-            rows="3"
-            class="mt-1 w-full resize-y rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 py-1 text-xs outline-none"
-            :placeholder="columnHint(field)"
-          />
-          <input
-            v-else
-            v-model="envDraft[field.name]"
-            :type="field.secret ? 'password' : 'text'"
-            class="mt-1 h-8 w-full rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 text-xs outline-none"
-          />
-        </label>
-        <n-button class="mt-2" size="tiny" attr-type="submit" :loading="packageBusy">保存</n-button>
-      </form>
-
-      <p
-        v-for="note in toolNotes.slice(0, 3)"
-        :key="note"
-        class="border-t border-[var(--ec-border)] px-3 py-2 text-xs leading-5 text-[var(--ec-attention)]"
-      >
-        {{ note }}
-      </p>
-      <button
-        type="button"
-        class="border-t border-[var(--ec-border)] px-3 py-3 text-left text-xs text-[var(--ec-fg-muted)]"
-        :title="toolsDir"
-        @click="onOpenToolsDir"
-      >
-        自定义工具目录
-      </button>
     </div>
     <InstallPackagePanel
       :show="installOpen"
