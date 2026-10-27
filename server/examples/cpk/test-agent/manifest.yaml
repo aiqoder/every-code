@@ -1,5 +1,0 @@
-id: test-agent
-name: 测试助手
-version: 1.0.0
-author: chengzi
-systemPrompt: prompt.md
