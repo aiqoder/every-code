@@ -2,6 +2,10 @@
 
 Electron + Vue 3 + TypeScript 桌面端（electron-vite）。
 
+源码：https://github.com/aiqoder/every-code
+
+本项目以 [MIT](LICENSE) 许可证开源。
+
 ## Recommended IDE Setup
 
 - [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
