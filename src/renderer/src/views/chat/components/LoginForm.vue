@@ -23,7 +23,9 @@ function onSubmit(): void {
 <template>
   <form class="w-full max-w-sm" @submit.prevent="onSubmit">
     <p class="text-xs tracking-[0.22em] text-[var(--ec-accent)] uppercase">Every Code</p>
-    <h1 class="mt-3 text-3xl font-semibold tracking-tight text-[var(--ec-fg)]">密钥</h1>
+    <h1 id="login-dialog-title" class="mt-3 text-3xl font-semibold tracking-tight text-[var(--ec-fg)]">
+      密钥
+    </h1>
     <p class="mt-2 text-sm leading-6 text-[var(--ec-fg-muted)]">
       填写接口地址和密钥后进入。聊天和工具都发往这个地址。
     </p>

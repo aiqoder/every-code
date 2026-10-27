@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import type { LoopMessage } from '../shared/loop'
+import type { LoopAgentHome, LoopInventory, LoopMessage, LoopPackage } from '../shared/loop'
 import type { UpdateCheckResult, UpdateStatus } from '../shared/updater'
 
 export interface DesktopApi {
@@ -8,6 +8,16 @@ export interface DesktopApi {
     getWorkspace: () => Promise<string>
     setWorkspace: (path: string) => Promise<string>
     pickWorkspace: () => Promise<string>
+    listInventory: () => Promise<LoopInventory>
+    listAgentHome: () => Promise<LoopAgentHome>
+    installPackage: (filePath?: string) => Promise<LoopPackage | null>
+    uninstallPackage: (id: string) => Promise<void>
+    savePackageEnv: (id: string, values: Record<string, string>) => Promise<LoopPackage>
+    setPackageRemoteId: (id: string, remoteId: number) => Promise<LoopPackage>
+    openToolsDir: () => Promise<void>
+  }
+  files: {
+    pathForFile: (file: File) => string
   }
   updater: {
     version: () => Promise<string>

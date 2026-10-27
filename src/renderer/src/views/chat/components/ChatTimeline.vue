@@ -1,16 +1,36 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { TimelineItem } from '../types'
+import type { QuestionAnswerPayload, TimelineItem } from '../types'
+import AskQuestionCard from './AskQuestionCard.vue'
+import MarkdownBody from './MarkdownBody.vue'
+import ReasoningBlock from './ReasoningBlock.vue'
+import TaskCard from './TaskCard.vue'
+import TodoWriterCard from './TodoWriterCard.vue'
 
-defineProps<{
+const props = defineProps<{
   items: TimelineItem[]
   sending: boolean
+}>()
+
+const emit = defineEmits<{
+  answer: [payload: QuestionAnswerPayload]
 }>()
 
 const openTools = ref<Record<string, boolean>>({})
 
 function toggle(id: string): void {
   openTools.value[id] = !openTools.value[id]
+}
+
+function assistantStreaming(index: number): boolean {
+  if (!props.sending) return false
+  if (props.items[index]?.kind !== 'assistant') return false
+  for (let cursor = index + 1; cursor < props.items.length; cursor += 1) {
+    const later = props.items[cursor]
+    if (!later) continue
+    if (later.kind === 'assistant' || later.kind === 'tool' || later.kind === 'user') return false
+  }
+  return true
 }
 </script>
 
@@ -24,28 +44,41 @@ function toggle(id: string): void {
       </p>
     </div>
     <div v-else class="mx-auto flex max-w-3xl flex-col gap-4">
-      <article v-for="item in items" :key="item.id">
+      <article v-for="(item, index) in items" :key="item.id" class="min-w-0">
         <div
           v-if="item.kind === 'user'"
-          class="ml-auto max-w-[85%] rounded-2xl bg-[var(--ec-accent)] px-4 py-3 text-sm leading-6 text-[var(--ec-on-accent)] select-text"
+          class="ml-auto max-w-[85%] rounded-2xl bg-[var(--ec-accent)] px-4 py-3 text-sm leading-6 break-words whitespace-pre-wrap text-[var(--ec-on-accent)] select-text"
         >
           {{ item.text }}
         </div>
         <div
           v-else-if="item.kind === 'assistant'"
-          class="max-w-[90%] text-sm leading-7 text-[var(--ec-fg)] select-text"
+          class="min-w-0 text-sm leading-7 text-[var(--ec-fg)]"
         >
-          <p
-            v-if="item.reasoning"
-            class="mb-2 rounded-lg border border-[var(--ec-border)] bg-[var(--ec-canvas-inset)] px-3 py-2 text-xs leading-5 text-[var(--ec-fg-muted)]"
-          >
-            {{ item.reasoning }}
-          </p>
-          <p class="whitespace-pre-wrap">{{ item.text }}</p>
+          <ReasoningBlock
+            v-if="item.reasoning.trim()"
+            :content="item.reasoning"
+            :live="assistantStreaming(index) && !item.text.trim()"
+          />
+          <MarkdownBody
+            v-if="item.text"
+            :content="item.text"
+            :streaming="assistantStreaming(index)"
+          />
         </div>
+        <TodoWriterCard
+          v-else-if="item.kind === 'tool' && item.name === 'todowriter'"
+          :item="item"
+        />
+        <TaskCard v-else-if="item.kind === 'tool' && item.name === 'Task'" :item="item" />
+        <AskQuestionCard
+          v-else-if="item.kind === 'tool' && item.name === 'AskQuestion'"
+          :item="item"
+          @answer="emit('answer', $event)"
+        />
         <div
           v-else-if="item.kind === 'tool'"
-          class="rounded-xl border border-[var(--ec-border)] bg-[var(--ec-canvas-subtle)]"
+          class="ec-skin-raised rounded-xl border border-[var(--ec-border)]"
         >
           <button
             type="button"
@@ -53,16 +86,15 @@ function toggle(id: string): void {
             @click="toggle(item.id)"
           >
             <span
-              class="rounded border border-[var(--ec-border)] bg-[var(--ec-canvas-inset)] px-1.5 py-0.5 font-mono text-[var(--ec-accent)]"
+              class="ec-skin-inset rounded border border-[var(--ec-border)] px-1.5 py-0.5 font-mono text-[var(--ec-accent)]"
               >{{ item.name }}</span
             >
             <span class="text-[var(--ec-fg-muted)]">{{ item.pending ? '执行中' : '完成' }}</span>
           </button>
           <pre
             v-if="openTools[item.id] || item.pending"
-            class="max-h-64 overflow-auto border-t border-[var(--ec-border)] bg-[var(--ec-canvas-inset)] px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-[var(--ec-fg)] select-text"
-            >{{ item.args }}{{ item.result ? '\n' + item.result : '' }}</pre
-          >
+            class="ec-skin-inset max-h-64 overflow-auto border-t border-[var(--ec-border)] px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-[var(--ec-fg)] select-text"
+            >{{ item.args }}{{ item.result ? '\n' + item.result : '' }}</pre>
         </div>
         <p
           v-else

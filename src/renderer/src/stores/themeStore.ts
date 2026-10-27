@@ -19,9 +19,15 @@ function readThemeId(): ThemeId {
 }
 
 function applyDocumentTheme(id: ThemeId): void {
+  const theme = themes[id]
   const root = document.documentElement
   root.dataset.theme = id
-  root.style.colorScheme = themes[id].dark ? 'dark' : 'light'
+  root.style.colorScheme = theme.dark ? 'dark' : 'light'
+  try {
+    window.electron?.ipcRenderer.send('theme:background', theme.cssVars['--ec-canvas'])
+  } catch {
+    // 浏览器预览没有桌面窗口
+  }
 }
 
 export const useThemeStore = defineStore('theme', () => {

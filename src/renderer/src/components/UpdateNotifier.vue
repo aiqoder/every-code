@@ -174,7 +174,7 @@ onUnmounted(() => {
           :percentage="percent"
           :height="6"
           :show-indicator="false"
-          color="var(--ec-accent, #e7c8a0)"
+          color="var(--ec-accent, #1f6feb)"
           rail-color="var(--ec-border, #30363d)"
         />
         <p v-if="status.state === 'downloaded'" class="hint">重启应用后完成安装</p>
@@ -240,7 +240,7 @@ onUnmounted(() => {
 .panel {
   padding: 12px;
   border-radius: 12px;
-  background: var(--ec-canvas-subtle, var(--ec-canvas, #161b22));
+  background: var(--ec-skin-raised);
   color: var(--ec-fg, #e6edf3);
   border: 1px solid var(--ec-border, #30363d);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
@@ -304,7 +304,7 @@ onUnmounted(() => {
   gap: 4px;
   padding: 2px 4px 2px 10px;
   border-radius: 999px;
-  background: var(--ec-canvas-subtle, var(--ec-canvas, #161b22));
+  background: var(--ec-skin-raised);
   color: var(--ec-fg-muted, #8b949e);
   border: 1px solid var(--ec-border, #30363d);
 }

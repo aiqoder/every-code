@@ -27,7 +27,7 @@ const statusText: Record<SocketStatus, string> = {
 
 <template>
   <aside
-    class="flex w-64 shrink-0 flex-col border-r border-[var(--ec-border)] bg-[var(--ec-canvas-subtle)] text-[var(--ec-fg)]"
+    class="ec-skin-raised flex w-64 shrink-0 flex-col border-r border-[var(--ec-border)] text-[var(--ec-fg)]"
   >
     <div class="flex items-center justify-between px-4 pt-4">
       <div class="min-w-0">

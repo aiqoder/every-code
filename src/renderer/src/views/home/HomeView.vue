@@ -9,7 +9,7 @@ const appStore = useAppStore()
   <main class="flex flex-1 flex-col gap-6 overflow-auto p-8">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">{{ appStore.title }}</h1>
-      <p class="mt-2 text-sm text-zinc-400">Electron + Vue 3 桌面端已就绪。</p>
+      <p class="mt-2 text-sm text-[var(--ec-fg-muted)]">Electron + Vue 3 桌面端已就绪。</p>
     </div>
     <StatusCard />
   </main>

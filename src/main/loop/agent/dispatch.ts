@@ -11,7 +11,11 @@ export async function dispatch(message: LoopMessage): Promise<LoopMessage> {
         return { type: LoopType.pong, id }
       case LoopType.toolCall: {
         const { name, args } = decodeToolCall(message)
-        return ok(LoopType.toolResult, id, await runTool(name, args))
+        return ok(
+          LoopType.toolResult,
+          id,
+          await runTool(name, args, { agentId: (message.metadata?.agentId || '').trim() })
+        )
       }
       case LoopType.skillCall: {
         const args = asRecord(message.payload)

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { listAgents, listModels, type AgentItem, type ModelItem } from '@/api/catalog'
-import { streamChat } from '@/api/chat'
+import { answerQuestion, streamChat } from '@/api/chat'
+import { syncInstalledPackages } from '@/views/agents/syncInstalled'
 import {
   createConversation,
   deleteConversation,
@@ -15,13 +16,9 @@ import { applyChatEvent, messagesToTimeline } from './applyEvent'
 import ChatComposer from './components/ChatComposer.vue'
 import ChatTimeline from './components/ChatTimeline.vue'
 import ConversationSidebar from './components/ConversationSidebar.vue'
-import LoginForm from './components/LoginForm.vue'
-import ThemeSwitch from '@/components/ThemeSwitch.vue'
-import { nextId, type TimelineItem } from './types'
+import { nextId, type QuestionAnswerPayload, type TimelineItem } from './types'
 
 const session = useSessionStore()
-const loginError = ref('')
-const loginPending = ref(false)
 const agents = ref<AgentItem[]>([])
 const models = ref<ModelItem[]>([])
 const conversations = ref<Conversation[]>([])
@@ -57,23 +54,17 @@ onMounted(async () => {
   if (session.loggedIn) await boot()
 })
 
+watch(
+  () => session.loggedIn,
+  (loggedIn, wasLoggedIn) => {
+    if (loggedIn && !wasLoggedIn) void boot()
+  }
+)
+
 onUnmounted(() => {
   socket?.close()
   abort?.abort()
 })
-
-async function onLogin(payload: { apiBase: string; apiKey: string }): Promise<void> {
-  loginError.value = ''
-  loginPending.value = true
-  try {
-    await session.login(payload.apiBase, payload.apiKey)
-    await boot()
-  } catch (err) {
-    loginError.value = err instanceof Error ? err.message : '登录失败'
-  } finally {
-    loginPending.value = false
-  }
-}
 
 function onLogout(): void {
   abort?.abort()
@@ -102,7 +93,14 @@ async function boot(): Promise<void> {
   agents.value = agentList
   models.value = modelList
   conversations.value = conversationList
-  if (!agentId.value && agentList[0]) agentId.value = String(agentList[0].id)
+  try {
+    const synced = await syncInstalledPackages()
+    if (synced.error) errorText.value = synced.error
+    if (synced.changed) agents.value = await listAgents().catch(() => agents.value)
+  } catch (err) {
+    errorText.value = err instanceof Error ? err.message : '同步智能体失败'
+  }
+  if (!agentId.value && agents.value[0]) agentId.value = String(agents.value[0].id)
   if (!modelId.value && modelList[0]) modelId.value = modelList[0].id
   if (conversationList[0]) await openConversation(conversationList[0].id)
 }
@@ -201,6 +199,94 @@ function stop(): void {
   abort?.abort()
 }
 
+async function resumeWithAnswer(payload: QuestionAnswerPayload): Promise<void> {
+  if (!agentId.value) throw new Error('先选择一个智能体')
+  if (!modelId.value) throw new Error('先选择一个模型')
+  if (!activeId.value) throw new Error('当前没有会话，无法提交')
+  sending.value = true
+  abort = new AbortController()
+  try {
+    await streamChat(
+      activeId.value,
+      {
+        agentId: agentId.value,
+        clientId: session.clientId,
+        toolResults: [
+          {
+            toolCallId: payload.toolCallId,
+            name: 'AskQuestion',
+            result: JSON.stringify({ answers: payload.answers })
+          }
+        ]
+      },
+      (event) => {
+        timeline.value = applyChatEvent(timeline.value, event)
+        void stickToBottom()
+      },
+      abort.signal
+    )
+    const detail = await getConversation(activeId.value)
+    timeline.value = messagesToTimeline(detail.messages)
+    const answered = timeline.value.find(
+      (item): item is Extract<TimelineItem, { kind: 'tool' }> =>
+        item.kind === 'tool' && item.id === payload.toolCallId
+    )
+    if (answered?.question?.status === 'pending') {
+      answered.question.error = '答案没有写入这一轮'
+      return
+    }
+    const current = conversations.value.find((item) => item.id === activeId.value)
+    if (current && detail.title) current.title = detail.title
+  } finally {
+    sending.value = false
+    abort = null
+    await stickToBottom()
+  }
+}
+
+async function onAnswerQuestion(payload: QuestionAnswerPayload): Promise<void> {
+  const block = timeline.value.find(
+    (item): item is Extract<TimelineItem, { kind: 'tool' }> =>
+      item.kind === 'tool' && item.id === payload.toolCallId
+  )
+  if (!block?.question || block.question.status !== 'pending') return
+  if (!activeId.value) {
+    block.question.error = '当前没有会话，无法提交'
+    return
+  }
+  if (!payload.questionId) {
+    block.question.error = '缺少提问编号'
+    return
+  }
+  const conversationId = activeId.value
+  block.question.status = 'submitting'
+  block.question.error = ''
+  try {
+    if (sending.value) {
+      await answerQuestion(conversationId, payload.questionId, payload.answers)
+    } else {
+      await resumeWithAnswer(payload)
+    }
+    const current = timeline.value.find(
+      (item): item is Extract<TimelineItem, { kind: 'tool' }> =>
+        item.kind === 'tool' && item.id === payload.toolCallId
+    )
+    if (current?.question?.status === 'submitting') {
+      current.question.status = 'done'
+      current.question.error = ''
+    }
+  } catch (err) {
+    const current = timeline.value.find(
+      (item): item is Extract<TimelineItem, { kind: 'tool' }> =>
+        item.kind === 'tool' && item.id === payload.toolCallId
+    )
+    if (current?.question && current.question.status === 'submitting') {
+      current.question.status = 'pending'
+      current.question.error = err instanceof Error ? err.message : '提交失败'
+    }
+  }
+}
+
 async function stickToBottom(): Promise<void> {
   await nextTick()
   const pane = scroller.value
@@ -215,23 +301,7 @@ function numberOrNull(value: string | null): number | null {
 </script>
 
 <template>
-  <div
-    v-if="!session.loggedIn"
-    class="flex h-full min-h-0 flex-col bg-[var(--ec-canvas)] text-[var(--ec-fg)]"
-  >
-    <div class="flex h-12 shrink-0 items-center justify-end px-5">
-      <ThemeSwitch />
-    </div>
-    <div class="flex min-h-0 flex-1 items-center justify-center px-6">
-      <LoginForm
-        :api-base="session.apiBase"
-        :error="loginError"
-        :pending="loginPending"
-        @submit="onLogin"
-      />
-    </div>
-  </div>
-  <div v-else class="flex h-full min-h-0 bg-[var(--ec-canvas)] text-[var(--ec-fg)]">
+  <div class="flex h-full min-h-0 text-[var(--ec-fg)]">
     <ConversationSidebar
       :conversations="conversations"
       :active-id="activeId"
@@ -244,17 +314,14 @@ function numberOrNull(value: string | null): number | null {
     />
     <section class="flex min-w-0 flex-1 flex-col">
       <header
-        class="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--ec-border)] px-5"
+        class="ec-skin flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--ec-border)] px-5"
       >
         <p class="min-w-0 truncate text-sm text-[var(--ec-fg)]">
           {{ conversations.find((item) => item.id === activeId)?.title || '新对话' }}
         </p>
-        <div class="flex min-w-0 items-center gap-3">
-          <p class="min-w-0 truncate text-xs text-[var(--ec-fg-muted)]">
-            {{ workspace || '未选择工作目录' }}
-          </p>
-          <ThemeSwitch />
-        </div>
+        <p class="min-w-0 truncate text-xs text-[var(--ec-fg-muted)]">
+          {{ workspace || '未选择工作目录' }}
+        </p>
       </header>
       <p
         v-if="errorText"
@@ -263,7 +330,7 @@ function numberOrNull(value: string | null): number | null {
         {{ errorText }}
       </p>
       <div ref="scroller" class="min-h-0 flex-1 overflow-auto">
-        <ChatTimeline :items="timeline" :sending="sending" />
+        <ChatTimeline :items="timeline" :sending="sending" @answer="onAnswerQuestion" />
       </div>
       <ChatComposer
         v-model:agent-id="agentId"

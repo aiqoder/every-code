@@ -9,11 +9,12 @@ html[data-theme='github-dark'] {
   --ec-border: #30363d;
   --ec-fg: #e6edf3;
   --ec-fg-muted: #8b949e;
-  --ec-accent: #2f81f7;
+  --ec-accent: #1f6feb;
   --ec-on-accent: #ffffff;
   --ec-success: #3fb950;
   --ec-danger: #f85149;
   --ec-attention: #d29922;
+  --ec-overlay: rgba(1, 4, 9, 0.65);
 }
 
 html[data-theme='github-light'] {
@@ -23,12 +24,13 @@ html[data-theme='github-light'] {
   --ec-canvas-inset: #f6f8fa;
   --ec-border: #d0d7de;
   --ec-fg: #1f2328;
-  --ec-fg-muted: #59636e;
+  --ec-fg-muted: #656d76;
   --ec-accent: #0969da;
   --ec-on-accent: #ffffff;
   --ec-success: #1a7f37;
   --ec-danger: #d1242f;
   --ec-attention: #9a6700;
+  --ec-overlay: rgba(31, 35, 40, 0.4);
 }
 
 html[data-theme='github-dimmed'] {
@@ -39,11 +41,18 @@ html[data-theme='github-dimmed'] {
   --ec-border: #444c56;
   --ec-fg: #adbac7;
   --ec-fg-muted: #768390;
-  --ec-accent: #539bf5;
+  --ec-accent: #316dca;
   --ec-on-accent: #ffffff;
   --ec-success: #57ab5a;
   --ec-danger: #e5534b;
   --ec-attention: #c69026;
+  --ec-overlay: rgba(28, 33, 40, 0.65);
+}
+
+:root {
+  --ec-skin: var(--ec-canvas);
+  --ec-skin-raised: var(--ec-canvas-subtle);
+  --ec-skin-inset: var(--ec-canvas-inset);
 }
 
 html,
@@ -54,10 +63,11 @@ body,
 
 body {
   margin: 0;
-  background: var(--ec-canvas);
   color: var(--ec-fg);
-  font-family: 'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  background-color: var(--ec-canvas);
 }
 
 button,
@@ -69,4 +79,28 @@ select {
 
 .select-text {
   user-select: text;
+}
+
+.ec-skin {
+  background-color: var(--ec-canvas);
+}
+
+.ec-skin-raised {
+  background-color: var(--ec-canvas-subtle);
+}
+
+.ec-skin-inset {
+  background-color: var(--ec-canvas-inset);
+}
+
+.n-input,
+.n-base-selection,
+.n-base-selection-label {
+  background-color: var(--ec-canvas-inset) !important;
+}
+
+.n-base-select-menu,
+.n-dropdown-menu,
+.n-popover {
+  background-color: var(--ec-canvas-subtle) !important;
 }

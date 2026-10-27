@@ -8,7 +8,8 @@ export const themeStorageKey = 'everycode.theme'
 
 export const defaultThemeId: ThemeId = 'github-dark'
 
-const fontFamily = "'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', sans-serif"
+const fontFamily =
+  "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif"
 
 export interface ThemeCssVars {
   '--ec-canvas': string
@@ -45,6 +46,7 @@ interface ThemeSource {
   accent: string
   accentHover: string
   accentPressed: string
+  onAccent: string
   success: string
   danger: string
   attention: string
@@ -93,6 +95,13 @@ function createTheme(source: ThemeSource): GithubTheme {
         errorColor: source.danger,
         warningColor: source.attention,
         fontFamily
+      },
+      Button: {
+        textColorPrimary: source.onAccent,
+        textColorHoverPrimary: source.onAccent,
+        textColorPressedPrimary: source.onAccent,
+        textColorFocusPrimary: source.onAccent,
+        textColorDisabledPrimary: source.onAccent
       }
     }
   }
@@ -101,7 +110,7 @@ function createTheme(source: ThemeSource): GithubTheme {
 export const themes: Record<ThemeId, GithubTheme> = {
   'github-dark': createTheme({
     id: 'github-dark',
-    label: 'GitHub 暗色',
+    label: '深色',
     dark: true,
     canvas: '#0d1117',
     canvasSubtle: '#161b22',
@@ -110,9 +119,10 @@ export const themes: Record<ThemeId, GithubTheme> = {
     fg: '#e6edf3',
     fgMuted: '#8b949e',
     fgSubtle: '#6e7681',
-    accent: '#2f81f7',
-    accentHover: '#58a6ff',
-    accentPressed: '#1f6feb',
+    accent: '#1f6feb',
+    accentHover: '#388bfd',
+    accentPressed: '#1158c7',
+    onAccent: '#ffffff',
     success: '#3fb950',
     danger: '#f85149',
     attention: '#d29922',
@@ -120,26 +130,27 @@ export const themes: Record<ThemeId, GithubTheme> = {
   }),
   'github-light': createTheme({
     id: 'github-light',
-    label: 'GitHub 亮色',
+    label: '浅色',
     dark: false,
     canvas: '#ffffff',
     canvasSubtle: '#f6f8fa',
     canvasInset: '#f6f8fa',
     border: '#d0d7de',
     fg: '#1f2328',
-    fgMuted: '#59636e',
+    fgMuted: '#656d76',
     fgSubtle: '#6e7781',
     accent: '#0969da',
     accentHover: '#0860ca',
     accentPressed: '#0550ae',
+    onAccent: '#ffffff',
     success: '#1a7f37',
     danger: '#d1242f',
     attention: '#9a6700',
-    hover: 'rgba(175, 184, 193, 0.2)'
+    hover: 'rgba(208, 215, 222, 0.48)'
   }),
   'github-dimmed': createTheme({
     id: 'github-dimmed',
-    label: 'GitHub 柔和暗色',
+    label: '暗淡',
     dark: true,
     canvas: '#22272e',
     canvasSubtle: '#2d333b',
@@ -148,9 +159,10 @@ export const themes: Record<ThemeId, GithubTheme> = {
     fg: '#adbac7',
     fgMuted: '#768390',
     fgSubtle: '#636e7b',
-    accent: '#539bf5',
-    accentHover: '#6cb6ff',
-    accentPressed: '#4184e4',
+    accent: '#316dca',
+    accentHover: '#4184e4',
+    accentPressed: '#2559a7',
+    onAccent: '#ffffff',
     success: '#57ab5a',
     danger: '#e5534b',
     attention: '#c69026',

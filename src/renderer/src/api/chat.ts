@@ -1,4 +1,5 @@
 import { readApiBase, readApiKey } from '@/lib/sessionConfig'
+import request from '@/utils/request'
 
 export interface ChatEvent {
   type: string
@@ -12,10 +13,35 @@ export interface ChatEvent {
   data?: Record<string, unknown>
 }
 
+export interface ChatToolResult {
+  toolCallId: string
+  name?: string
+  result: string
+}
+
 export interface ChatBody {
   content?: string
   agentId: string
   clientId: string
+  toolResults?: ChatToolResult[]
+}
+
+export interface QuestionAnswerInput {
+  questionId: string
+  selected: string[]
+  text?: string
+}
+
+/** 提交 AskQuestion 的选择。text 只在选了「其他」时带上。 */
+export function answerQuestion(
+  conversationId: number,
+  questionId: string,
+  answers: QuestionAnswerInput[]
+): Promise<unknown> {
+  return request.post(
+    `/conversations/${conversationId}/questions/${encodeURIComponent(questionId)}`,
+    { answers }
+  )
 }
 
 /** 直接请求 /conversations/:id/chat，按 SSE 事件回调。 */

@@ -1,6 +1,6 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { LoopMessage } from '../shared/loop'
+import type { LoopAgentHome, LoopInventory, LoopMessage, LoopPackage } from '../shared/loop'
 import type { UpdateCheckResult, UpdateStatus } from '../shared/updater'
 
 const api = {
@@ -9,7 +9,21 @@ const api = {
       ipcRenderer.invoke('loop:dispatch', message),
     getWorkspace: (): Promise<string> => ipcRenderer.invoke('loop:get-workspace'),
     setWorkspace: (path: string): Promise<string> => ipcRenderer.invoke('loop:set-workspace', path),
-    pickWorkspace: (): Promise<string> => ipcRenderer.invoke('loop:pick-workspace')
+    pickWorkspace: (): Promise<string> => ipcRenderer.invoke('loop:pick-workspace'),
+    listInventory: (): Promise<LoopInventory> => ipcRenderer.invoke('loop:list-inventory'),
+    listAgentHome: (): Promise<LoopAgentHome> => ipcRenderer.invoke('loop:list-agent-home'),
+    installPackage: (filePath?: string): Promise<LoopPackage | null> =>
+      ipcRenderer.invoke('loop:install-package', filePath),
+    uninstallPackage: (id: string): Promise<void> =>
+      ipcRenderer.invoke('loop:uninstall-package', id),
+    savePackageEnv: (id: string, values: Record<string, string>): Promise<LoopPackage> =>
+      ipcRenderer.invoke('loop:save-package-env', id, values),
+    setPackageRemoteId: (id: string, remoteId: number): Promise<LoopPackage> =>
+      ipcRenderer.invoke('loop:set-package-remote', id, remoteId),
+    openToolsDir: (): Promise<void> => ipcRenderer.invoke('loop:open-tools-dir')
+  },
+  files: {
+    pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   updater: {
     version: (): Promise<string> => ipcRenderer.invoke('updater:version'),

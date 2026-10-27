@@ -66,7 +66,7 @@ function onModelChange(value: string | number | Array<string | number> | null): 
 
 <template>
   <form
-    class="border-t border-[var(--ec-border)] bg-[var(--ec-canvas-subtle)] px-4 py-3"
+    class="ec-skin-raised border-t border-[var(--ec-border)] px-4 py-3"
     @submit.prevent="submit"
   >
     <div class="mx-auto max-w-3xl">
