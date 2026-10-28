@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NSwitch, useDialog, useMessage } from 'naive-ui'
+import UiSwitch from '@/components/ui/UiSwitch.vue'
+import { useDialog, useMessage } from '@/components/ui/feedback'
 import { listAgents, listModels, type AgentItem, type ModelItem } from '@/api/catalog'
 import { useSessionStore } from '@/stores/sessionStore'
 import {
@@ -9,7 +10,6 @@ import {
   failureHint,
   formatDateTime,
   formatDuration,
-  permissionLabel,
   runStatusLabel,
   validityLabel,
   type ScheduleDraft,
@@ -104,7 +104,7 @@ function openRecords(): void {
 async function onRun(): Promise<void> {
   if (!task.value) return
   try {
-    await runScheduledTask(task.value.id, task.value.permission === 'default')
+    await runScheduledTask(task.value.id)
   } catch (err) {
     message.error(err instanceof Error ? err.message : '运行失败')
   }
@@ -131,8 +131,7 @@ function openEdit(): void {
     agentName: current.agentName,
     modelId: current.modelId,
     workspace: current.workspace,
-    permission: current.permission,
-    rule: structuredClone(current.rule),
+    rule: structuredClone(toRaw(current.rule)),
     enabled: current.enabled
   }
   editorOpen.value = true
@@ -160,6 +159,7 @@ function confirmRemove(): void {
     content: '删除后任务不再执行，此操作无法撤销。',
     positiveText: '删除',
     negativeText: '取消',
+    danger: true,
     onPositiveClick: async () => {
       if (!window.api?.schedule) return
       await window.api.schedule.remove([id])
@@ -182,15 +182,18 @@ function openRun(run: ScheduleRun): void {
 
 <template>
   <div class="flex h-full min-h-0 flex-col text-[var(--ec-fg)]">
-    <header class="flex shrink-0 items-start gap-3 border-b border-[var(--ec-border)] px-5 py-3">
-      <button type="button" class="mt-0.5 text-sm text-[var(--ec-fg-muted)]" @click="back">
+    <header class="window-drag flex shrink-0 items-start gap-3 border-b border-[var(--ec-border)] px-5 py-3">
+      <button
+        type="button"
+        class="mt-0.5 rounded-md px-2 py-1 text-sm text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
+        @click="back"
+      >
         返回
       </button>
       <div v-if="task" class="min-w-0 flex-1">
-        <p class="truncate text-sm">{{ task.name }}</p>
+        <p class="truncate text-base font-semibold">{{ task.name }}</p>
         <p class="mt-1 truncate text-xs text-[var(--ec-fg-muted)]">
-          {{ task.agentName || '未命名智能体' }} · {{ describeRule(task.rule) }} ·
-          {{ permissionLabel(task.permission) }}
+          {{ task.agentName || '未命名智能体' }} · {{ describeRule(task.rule) }}
         </p>
         <p class="mt-0.5 text-xs text-[var(--ec-fg-muted)]">
           <template v-if="validityLabel(task.rule)">{{ validityLabel(task.rule) }} · </template>
@@ -208,7 +211,7 @@ function openRun(run: ScheduleRun): void {
         <button type="button" class="bar" @click="openEdit">编辑</button>
         <button type="button" class="bar" @click="openRecords">运行记录</button>
         <button type="button" class="bar" @click="confirmRemove">删除</button>
-        <n-switch size="small" :value="task.enabled" @update:value="onToggle" />
+        <UiSwitch size="small" :value="task.enabled" @update:value="onToggle" />
       </div>
     </header>
 
@@ -239,7 +242,11 @@ function openRun(run: ScheduleRun): void {
           <span
             class="rail absolute top-4 left-[4px] h-[calc(100%-0.5rem)] w-px bg-[var(--ec-border)]"
           />
-          <button type="button" class="w-full text-left" @click="openRun(item)">
+          <button
+            type="button"
+            class="w-full rounded-md text-left hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]"
+            @click="openRun(item)"
+          >
             <span class="flex items-baseline gap-2">
               <span class="text-sm">{{ runStatusLabel(item.status) }}</span>
               <span class="text-xs text-[var(--ec-fg-muted)]">{{
@@ -286,7 +293,7 @@ li:last-child .rail {
 .bar {
   border-radius: 0.375rem;
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--ec-text-meta);
   color: var(--ec-fg-muted);
 }
 

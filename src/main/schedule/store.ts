@@ -9,7 +9,6 @@ import {
   todayYmd,
   type ScheduleDraft,
   type ScheduleFire,
-  type SchedulePermission,
   type ScheduleRepeat,
   type ScheduleRule,
   type ScheduleRun,
@@ -229,7 +228,6 @@ function applyDraft(task: ScheduledTask, draft: ScheduleDraft, now: Date): void 
   task.agentName = draft.agentName
   task.modelId = draft.modelId
   task.workspace = draft.workspace
-  task.permission = draft.permission
   task.rule = draft.rule
   task.enabled = draft.enabled
   if (draft.rule.repeat === 'biweekly') {
@@ -248,7 +246,6 @@ function taskFromDraft(draft: ScheduleDraft, now: Date): ScheduledTask {
     agentName: draft.agentName,
     modelId: draft.modelId,
     workspace: draft.workspace,
-    permission: draft.permission,
     rule: draft.rule,
     enabled: draft.enabled,
     anchorDate: '',
@@ -358,7 +355,6 @@ function coerceTask(input: unknown): ScheduledTask | null {
   if (typeof raw.id !== 'string' || !raw.id) return null
   const rule = coerceRule(raw.rule)
   if (!rule) return null
-  const permission: SchedulePermission = raw.permission === 'full' ? 'full' : 'default'
   return {
     id: raw.id,
     name: text(raw.name),
@@ -367,7 +363,6 @@ function coerceTask(input: unknown): ScheduledTask | null {
     agentName: text(raw.agentName),
     modelId: typeof raw.modelId === 'number' && raw.modelId > 0 ? raw.modelId : null,
     workspace: text(raw.workspace),
-    permission,
     rule,
     enabled: raw.enabled !== false,
     anchorDate: text(raw.anchorDate),

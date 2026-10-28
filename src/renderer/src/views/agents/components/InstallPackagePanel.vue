@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue'
-import { NButton } from 'naive-ui'
+import UiButton from '@/components/ui/UiButton.vue'
 
 const props = defineProps<{
   show: boolean
@@ -84,7 +84,7 @@ function onPick(event: Event): void {
       tabindex="-1"
       @keydown.esc.prevent="requestClose"
     >
-      <h2 id="install-package-title" class="text-base font-medium">安装智能体</h2>
+      <h2 id="install-package-title" class="text-base font-semibold">安装智能体</h2>
       <p class="mt-1 text-sm text-[var(--ec-fg-muted)]">支持 .cpk 和 .agent</p>
       <label
         ref="zoneRef"
@@ -92,7 +92,7 @@ function onPick(event: Event): void {
         :class="
           dragging
             ? 'border-[var(--ec-accent)] bg-[color-mix(in_srgb,var(--ec-accent)_14%,transparent)]'
-            : 'border-[var(--ec-border)] bg-[var(--ec-canvas)] hover:border-[var(--ec-accent)]'
+            : 'border-[var(--ec-border)] bg-[var(--ec-canvas)] hover:border-[var(--ec-accent)] hover:bg-[color-mix(in_srgb,var(--ec-accent)_8%,transparent)]'
         "
         @dragenter="onDragEnter"
         @dragover="onDragOver"
@@ -114,7 +114,7 @@ function onPick(event: Event): void {
       </label>
       <p v-if="error" class="mt-3 text-sm leading-6 text-[var(--ec-danger)]">{{ error }}</p>
       <div class="mt-5 flex justify-end">
-        <n-button :disabled="busy" @click="requestClose">取消</n-button>
+        <UiButton :disabled="busy" @click="requestClose">取消</UiButton>
       </div>
     </div>
   </div>

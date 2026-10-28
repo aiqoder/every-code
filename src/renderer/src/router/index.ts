@@ -25,18 +25,18 @@ const router = createRouter({
               path: 'schedules/:id',
               name: 'schedule-detail',
               component: () => import('@/views/schedules/ScheduleDetailView.vue')
+            },
+            {
+              path: 'agents',
+              name: 'agents',
+              component: () => import('@/views/agents/AgentsView.vue')
+            },
+            {
+              path: 'settings',
+              name: 'settings',
+              component: () => import('@/views/settings/SettingsView.vue')
             }
           ]
-        },
-        {
-          path: 'agents',
-          name: 'agents',
-          component: () => import('@/views/agents/AgentsView.vue')
-        },
-        {
-          path: 'settings',
-          name: 'settings',
-          component: () => import('@/views/settings/SettingsView.vue')
         }
       ]
     }

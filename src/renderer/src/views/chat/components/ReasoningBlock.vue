@@ -31,7 +31,7 @@ function onToggle(event: Event): void {
     @toggle="onToggle"
   >
     <summary
-      class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-[var(--ec-fg-muted)] select-none [&::-webkit-details-marker]:hidden"
+      class="flex cursor-pointer list-none items-center gap-2 rounded-xl px-3 py-2 text-xs text-[var(--ec-fg-muted)] select-none hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)] hover:text-[var(--ec-fg)] [&::-webkit-details-marker]:hidden"
     >
       <span
         class="inline-block h-1.5 w-1.5 shrink-0 rounded-full"

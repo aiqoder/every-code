@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, toRaw, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NDropdown, useDialog, useMessage } from 'naive-ui'
+import UiMenu from '@/components/ui/UiMenu.vue'
+import { useDialog, useMessage } from '@/components/ui/feedback'
 import {
   listAgents,
   listModels,
@@ -194,7 +195,6 @@ function openManual(): void {
     agentName: agent.agentName,
     modelId: rememberedModel(),
     workspace: workspace.value,
-    permission: 'default',
     enabled: true,
     rule: {
       repeat: 'daily',
@@ -232,8 +232,7 @@ function openEdit(task: ScheduledTask): void {
     agentName: task.agentName,
     modelId: task.modelId,
     workspace: task.workspace,
-    permission: task.permission,
-    rule: structuredClone(task.rule),
+    rule: structuredClone(toRaw(task.rule)),
     enabled: task.enabled
   }
   editorOpen.value = true
@@ -273,7 +272,7 @@ async function onToggle(task: ScheduledTask, enabled: boolean): Promise<void> {
 
 async function onRun(task: ScheduledTask): Promise<void> {
   try {
-    await runScheduledTask(task.id, task.permission === 'default')
+    await runScheduledTask(task.id)
   } catch (err) {
     message.error(err instanceof Error ? err.message : '运行失败')
   }
@@ -289,6 +288,7 @@ function confirmRemove(ids: string[]): void {
         : `删除选中的 ${ids.length} 个定时任务？删除后不再执行，此操作无法撤销。`,
     positiveText: '删除',
     negativeText: '取消',
+    danger: true,
     onPositiveClick: async () => {
       if (!window.api?.schedule) return
       await window.api.schedule.remove(ids)
@@ -356,7 +356,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
 
 <template>
   <div class="flex h-full min-h-0 flex-col text-[var(--ec-fg)]">
-    <div class="flex shrink-0 items-center gap-3 border-b border-[var(--ec-border)] px-5">
+    <div class="window-drag flex shrink-0 items-center gap-3 border-b border-[var(--ec-border)] px-5">
       <div class="flex gap-1" role="tablist">
         <button
           type="button"
@@ -365,7 +365,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
           :class="
             tab === 'tasks'
               ? 'border-[var(--ec-accent)] font-medium'
-              : 'border-transparent text-[var(--ec-fg-muted)]'
+              : 'border-transparent text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]'
           "
           :aria-selected="tab === 'tasks'"
           @click="tab = 'tasks'"
@@ -379,7 +379,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
           :class="
             tab === 'runs'
               ? 'border-[var(--ec-accent)] font-medium'
-              : 'border-transparent text-[var(--ec-fg-muted)]'
+              : 'border-transparent text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]'
           "
           :aria-selected="tab === 'runs'"
           @click="tab = 'runs'"
@@ -392,7 +392,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
         v-if="searching"
         v-model="query"
         type="search"
-        class="h-8 w-52 rounded-md border border-[var(--ec-border)] bg-transparent px-2 text-sm outline-none"
+        class="h-8 w-52 rounded-md border border-[var(--ec-field-border)] bg-[var(--ec-field)] px-2 text-sm text-[var(--ec-fg)] outline-none"
         :placeholder="tab === 'tasks' ? '搜索任务' : '搜索运行记录'"
         aria-label="搜索"
       />
@@ -413,16 +413,18 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
         <div
           class="inline-flex overflow-hidden rounded-md bg-[var(--ec-accent)] text-[var(--ec-on-accent)]"
         >
-          <button type="button" class="px-3 py-1 text-sm" @click="openManual">新建</button>
-          <n-dropdown trigger="click" :options="createOptions" @select="onCreate">
+          <button type="button" class="px-3 py-1 text-sm hover:bg-white/15" @click="openManual">
+            新建
+          </button>
+          <UiMenu :options="createOptions" @select="onCreate">
             <button
               type="button"
-              class="border-l border-white/30 px-2 py-1 text-sm"
+              class="border-l border-white/30 px-2 py-1 text-sm hover:bg-white/15"
               aria-label="更多创建方式"
             >
               ▾
             </button>
-          </n-dropdown>
+          </UiMenu>
         </div>
       </template>
     </div>
@@ -493,7 +495,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
               v-for="item in scheduleTemplates"
               :key="item.id"
               type="button"
-              class="rounded-md border border-[var(--ec-border)] px-3 py-3 text-left hover:border-[var(--ec-accent)]"
+              class="rounded-md border border-[var(--ec-border)] px-3 py-3 text-left hover:border-[var(--ec-accent)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]"
               @click="openTemplate(item)"
             >
               <span class="block text-sm">{{ item.name }}</span>
@@ -545,14 +547,14 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
           >
             <button
               type="button"
-              class="flex w-full items-start gap-3 text-left"
+              class="flex w-full items-start gap-3 rounded-md text-left hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]"
               @click="openRun(item)"
             >
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2">
                   <span class="truncate text-sm">{{ item.taskName }}</span>
                   <span
-                    class="shrink-0 text-[11px]"
+                    class="shrink-0 text-xs"
                     :class="
                       item.status === 'failed'
                         ? 'text-[var(--ec-danger)]'
@@ -565,7 +567,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
                   >
                     {{ runStatusLabel(item.status) }}
                   </span>
-                  <span v-if="item.archived" class="text-[11px] text-[var(--ec-fg-muted)]"
+                  <span v-if="item.archived" class="text-xs text-[var(--ec-fg-muted)]"
                     >已归档</span
                   >
                 </span>
@@ -627,7 +629,7 @@ async function archiveRun(run: ScheduleRun, archived: boolean): Promise<void> {
 .bar {
   border-radius: 0.375rem;
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--ec-text-meta);
   color: var(--ec-fg-muted);
 }
 

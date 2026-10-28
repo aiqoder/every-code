@@ -1,8 +1,6 @@
 export type ScheduleRepeat =
   'interval' | 'once' | 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly'
 
-export type SchedulePermission = 'default' | 'full'
-
 export type ScheduleRunStatus = 'running' | 'success' | 'failed' | 'waiting'
 
 export type ScheduleTrigger = 'schedule' | 'manual'
@@ -33,7 +31,6 @@ export interface ScheduleDraft {
   agentName: string
   modelId: number | null
   workspace: string
-  permission: SchedulePermission
   rule: ScheduleRule
   enabled: boolean
 }
@@ -46,7 +43,6 @@ export interface ScheduledTask {
   agentName: string
   modelId: number | null
   workspace: string
-  permission: SchedulePermission
   rule: ScheduleRule
   enabled: boolean
   /** 每双周的对齐日期，YYYY-MM-DD。 */
@@ -128,7 +124,6 @@ export function blankDraft(): ScheduleDraft {
     agentName: '',
     modelId: null,
     workspace: '',
-    permission: 'default',
     rule: defaultRule(),
     enabled: true
   }
@@ -157,7 +152,6 @@ export function prepareDraft(input: unknown): ScheduleDraft {
     agentName: clip(raw.agentName, 80),
     modelId: positiveInt(raw.modelId),
     workspace: clip(raw.workspace, 500),
-    permission: raw.permission === 'full' ? 'full' : 'default',
     rule,
     enabled: raw.enabled !== false
   }
@@ -245,10 +239,6 @@ export function intervalLabel(minutes: number): string {
     return hours === 1 ? '每小时' : `每 ${hours} 小时`
   }
   return `每 ${minutes} 分钟`
-}
-
-export function permissionLabel(permission: SchedulePermission): string {
-  return permission === 'full' ? '完全访问权限' : '默认权限'
 }
 
 export function runStatusLabel(status: ScheduleRunStatus): string {

@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { QuestionAnswerPayload, TimelineItem } from '../types'
 import AskQuestionCard from './AskQuestionCard.vue'
+import ChevronIcon from './ChevronIcon.vue'
 import MarkdownBody from './MarkdownBody.vue'
 import ReasoningBlock from './ReasoningBlock.vue'
 import TaskCard from './TaskCard.vue'
@@ -18,8 +19,17 @@ const emit = defineEmits<{
 
 const openTools = ref<Record<string, boolean>>({})
 
-function toggle(id: string): void {
-  openTools.value[id] = !openTools.value[id]
+function toolOpen(id: string, pending: boolean): boolean {
+  const chosen = openTools.value[id]
+  return chosen === undefined ? pending : chosen
+}
+
+function toggleTool(id: string, pending: boolean): void {
+  openTools.value[id] = !toolOpen(id, pending)
+}
+
+function toolPreview(args: string, result: string): string {
+  return (result.trim() || args.trim()).replace(/\s+/g, ' ')
 }
 
 function assistantStreaming(index: number): boolean {
@@ -38,7 +48,7 @@ function assistantStreaming(index: number): boolean {
   <div class="px-6 py-6">
     <div v-if="items.length === 0" class="mx-auto mt-24 max-w-lg text-center">
       <p class="text-xs tracking-[0.2em] text-[var(--ec-accent)] uppercase">Desk</p>
-      <h2 class="mt-3 text-2xl font-semibold text-[var(--ec-fg)]">把任务交给当前工作目录</h2>
+      <h2 class="mt-3 text-2xl font-semibold tracking-tight text-[var(--ec-fg)]">把任务交给当前工作目录</h2>
       <p class="mt-3 text-sm leading-6 text-[var(--ec-fg-muted)]">
         消息直接发给服务端会话。读文件、改代码、跑命令和技能脚本在这台电脑上执行。
       </p>
@@ -53,7 +63,7 @@ function assistantStreaming(index: number): boolean {
         </div>
         <div
           v-else-if="item.kind === 'assistant'"
-          class="min-w-0 text-sm leading-7 text-[var(--ec-fg)]"
+          class="min-w-0 text-sm leading-6 text-[var(--ec-fg)]"
         >
           <ReasoningBlock
             v-if="item.reasoning.trim()"
@@ -76,25 +86,28 @@ function assistantStreaming(index: number): boolean {
           :item="item"
           @answer="emit('answer', $event)"
         />
-        <div
-          v-else-if="item.kind === 'tool'"
-          class="ec-skin-raised rounded-xl border border-[var(--ec-border)]"
-        >
+        <div v-else-if="item.kind === 'tool'">
           <button
             type="button"
-            class="flex w-full items-center gap-3 px-3 py-2 text-left text-xs text-[var(--ec-fg)]"
-            @click="toggle(item.id)"
+            class="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-left text-xs text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]"
+            :aria-expanded="toolOpen(item.id, item.pending)"
+            @click="toggleTool(item.id, item.pending)"
           >
-            <span
-              class="ec-skin-inset rounded border border-[var(--ec-border)] px-1.5 py-0.5 font-mono text-[var(--ec-accent)]"
-              >{{ item.name }}</span
+            <ChevronIcon :open="toolOpen(item.id, item.pending)" />
+            <span class="shrink-0 font-mono" :class="item.pending ? 'text-[var(--ec-accent)]' : ''"
+              >{{ item.name }}{{ toolPreview(item.args, item.result) ? ':' : '' }}</span
             >
-            <span class="text-[var(--ec-fg-muted)]">{{ item.pending ? '执行中' : '完成' }}</span>
+            <span
+              v-if="toolPreview(item.args, item.result)"
+              class="min-w-0 flex-1 truncate font-mono"
+              >{{ toolPreview(item.args, item.result) }}</span
+            >
           </button>
           <pre
-            v-if="openTools[item.id] || item.pending"
-            class="ec-skin-inset max-h-64 overflow-auto border-t border-[var(--ec-border)] px-3 py-2 font-mono text-xs leading-5 whitespace-pre-wrap text-[var(--ec-fg)] select-text"
-            >{{ item.args }}{{ item.result ? '\n' + item.result : '' }}</pre>
+            v-if="toolOpen(item.id, item.pending)"
+            class="mt-1 max-h-64 overflow-auto pl-5 font-mono text-xs leading-5 whitespace-pre-wrap text-[var(--ec-fg)] select-text"
+            >{{ item.args }}{{ item.result ? '\n' + item.result : '' }}</pre
+          >
         </div>
         <p
           v-else

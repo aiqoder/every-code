@@ -46,7 +46,7 @@ function sendPing(): void {
     <button
       v-if="versions"
       type="button"
-      class="mt-5 rounded-md bg-[var(--ec-accent)] px-4 py-2 text-sm font-medium text-[var(--ec-on-accent)]"
+      class="mt-5 rounded-md bg-[var(--ec-accent)] px-4 py-2 text-sm font-medium text-[var(--ec-on-accent)] hover:bg-[var(--accent-hover)]"
       @click="sendPing"
     >
       {{ pinged ? '已发送 ping' : '发送 IPC ping' }}

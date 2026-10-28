@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import DOMPurify from 'dompurify'
-import { NButton, NCard, NProgress } from 'naive-ui'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiProgress from '@/components/ui/UiProgress.vue'
+import { bindUpdateCheck } from '@/lib/updateCheck'
 import type { UpdateStatus } from '@shared/updater'
 
 const NOTES_TAGS = ['p', 'br', 'strong', 'em', 'b', 'i', 'a', 'ul', 'ol', 'li', 'code']
@@ -30,19 +32,13 @@ function sanitizeNotes(notes: string): string {
 }
 
 const bridgeReady = typeof window !== 'undefined' && Boolean(window.api?.updater)
-const currentVersion = ref('')
 const unpackaged = ref(false)
 const pending = ref(false)
 const downloadPending = ref(false)
 const status = ref<UpdateStatus>({ state: 'idle' })
 
 let stopStatus: (() => void) | undefined
-
-const loading = computed(() => pending.value || status.value.state === 'checking')
-
-const versionLabel = computed(() =>
-  currentVersion.value ? `当前 v${currentVersion.value}` : '当前版本'
-)
+let unbindCheck: (() => void) | undefined
 
 const percent = computed(() => {
   if (status.value.state !== 'downloading') return 0
@@ -167,22 +163,17 @@ async function install(): Promise<void> {
 }
 
 onMounted(() => {
+  unbindCheck = bindUpdateCheck(check)
   const updater = window.api?.updater
   if (!updater) return
-  void updater
-    .version()
-    .then((version) => {
-      currentVersion.value = version
-    })
-    .catch(() => {
-      currentVersion.value = ''
-    })
   stopStatus = updater.onStatus((next) => {
     status.value = next
   })
 })
 
 onUnmounted(() => {
+  unbindCheck?.()
+  unbindCheck = undefined
   stopStatus?.()
   stopStatus = undefined
 })
@@ -190,17 +181,11 @@ onUnmounted(() => {
 
 <template>
   <div v-if="bridgeReady" class="updater-dock">
-    <n-card
-      v-if="panelOpen"
-      size="small"
-      :bordered="false"
-      class="updater-card"
-      content-style="padding: 0; background: transparent;"
-    >
+    <div v-if="panelOpen" class="updater-card">
       <div class="panel" role="status">
         <div class="panel-head">
           <p class="panel-title">{{ panelTitle }}</p>
-          <n-button v-if="dismissible" size="tiny" quaternary @click="dismiss">关闭</n-button>
+          <UiButton v-if="dismissible" size="tiny" quaternary @click="dismiss">关闭</UiButton>
         </div>
         <!-- 发布说明来自 GitHub，已用 DOMPurify 去掉脚本和未知标签 -->
         <!-- eslint-disable-next-line vue/no-v-html -->
@@ -208,20 +193,11 @@ onUnmounted(() => {
         <p v-else-if="status.state === 'available'" class="notes">
           {{ notesPreview || '暂无发布说明' }}
         </p>
-        <n-progress
-          v-if="status.state === 'downloading'"
-          class="progress"
-          type="line"
-          :percentage="percent"
-          :height="6"
-          :show-indicator="false"
-          color="var(--ec-accent, #1f6feb)"
-          rail-color="var(--ec-border, #30363d)"
-        />
+        <UiProgress v-if="status.state === 'downloading'" class="progress" :percentage="percent" />
         <p v-if="status.state === 'downloaded'" class="hint">重启应用后完成安装</p>
         <p v-if="status.state === 'error'" class="error">{{ errorText }}</p>
         <div v-if="status.state === 'available' || status.state === 'downloaded'" class="actions">
-          <n-button
+          <UiButton
             v-if="status.state === 'available'"
             size="small"
             type="primary"
@@ -230,22 +206,10 @@ onUnmounted(() => {
             @click="download"
           >
             下载更新
-          </n-button>
-          <n-button v-else size="small" type="primary" @click="install">立即重启安装</n-button>
+          </UiButton>
+          <UiButton v-else size="small" type="primary" @click="install">立即重启安装</UiButton>
         </div>
       </div>
-    </n-card>
-    <div class="updater-chip">
-      <span class="version">{{ versionLabel }}</span>
-      <n-button
-        size="tiny"
-        quaternary
-        :loading="loading"
-        :disabled="loading || status.state === 'downloading'"
-        @click="check"
-      >
-        检查更新
-      </n-button>
     </div>
   </div>
 </template>
@@ -254,7 +218,7 @@ onUnmounted(() => {
 .updater-dock {
   position: fixed;
   left: 16px;
-  bottom: 52px;
+  bottom: 56px;
   z-index: 80;
   display: flex;
   flex-direction: column;
@@ -269,11 +233,6 @@ onUnmounted(() => {
   pointer-events: auto;
 }
 
-.updater-dock :deep(.n-card) {
-  background: transparent;
-  box-shadow: none;
-}
-
 .updater-card {
   width: min(268px, calc(100vw - 32px));
 }
@@ -281,9 +240,9 @@ onUnmounted(() => {
 .panel {
   padding: 12px;
   border-radius: 12px;
-  background: var(--ec-skin-raised);
+  background: var(--ec-canvas-subtle);
   color: var(--ec-fg, #e6edf3);
-  border: 1px solid var(--ec-border, #30363d);
+  border: 1px solid var(--ec-border);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
 
@@ -296,7 +255,7 @@ onUnmounted(() => {
 
 .panel-title {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--ec-text-body);
   font-weight: 600;
   line-height: 1.4;
   color: var(--ec-fg, #e6edf3);
@@ -306,7 +265,7 @@ onUnmounted(() => {
 .hint,
 .error {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--ec-text-meta);
   line-height: 1.5;
 }
 
@@ -329,7 +288,7 @@ onUnmounted(() => {
 }
 
 .notes-html :deep(a) {
-  color: var(--ec-accent, #1f6feb);
+  color: var(--ec-accent, #3557f5);
   overflow-wrap: anywhere;
 }
 
@@ -356,23 +315,5 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 10px;
-}
-
-.updater-chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 4px 2px 10px;
-  border-radius: 999px;
-  background: var(--ec-skin-raised);
-  color: var(--ec-fg-muted, #8b949e);
-  border: 1px solid var(--ec-border, #30363d);
-}
-
-.version {
-  font-size: 12px;
-  line-height: 1;
-  color: var(--ec-fg, #e6edf3);
-  white-space: nowrap;
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { NButton, NInput } from 'naive-ui'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiField from '@/components/ui/UiField.vue'
 
 const props = defineProps<{
   apiBase: string
@@ -23,7 +24,7 @@ function onSubmit(): void {
 <template>
   <form class="w-full max-w-sm" @submit.prevent="onSubmit">
     <p class="text-xs tracking-[0.22em] text-[var(--ec-accent)] uppercase">Every Code</p>
-    <h1 id="login-dialog-title" class="mt-3 text-3xl font-semibold tracking-tight text-[var(--ec-fg)]">
+    <h1 id="login-dialog-title" class="mt-3 text-2xl font-semibold tracking-tight text-[var(--ec-fg)]">
       密钥
     </h1>
     <p class="mt-2 text-sm leading-6 text-[var(--ec-fg-muted)]">
@@ -31,24 +32,26 @@ function onSubmit(): void {
     </p>
     <label class="mt-8 block text-sm text-[var(--ec-fg)]">
       接口地址
-      <n-input
-        v-model:value="apiBase"
+      <UiField
+        v-model="apiBase"
         class="mt-2"
         placeholder="http://127.0.0.1:8182"
-        :input-props="{ autocomplete: 'url', required: true }"
+        autocomplete="url"
+        required
       />
     </label>
     <label class="mt-4 block text-sm text-[var(--ec-fg)]">
       密钥
-      <n-input
-        v-model:value="apiKey"
+      <UiField
+        v-model="apiKey"
         class="mt-2"
         type="password"
-        :input-props="{ autocomplete: 'off', required: true }"
+        autocomplete="off"
+        required
       />
     </label>
     <p v-if="props.error" class="mt-4 text-sm text-[var(--ec-danger)]">{{ props.error }}</p>
-    <n-button
+    <UiButton
       class="mt-6"
       type="primary"
       attr-type="submit"
@@ -57,6 +60,6 @@ function onSubmit(): void {
       :disabled="props.pending"
     >
       {{ props.pending ? '登录中…' : '进入' }}
-    </n-button>
+    </UiButton>
   </form>
 </template>

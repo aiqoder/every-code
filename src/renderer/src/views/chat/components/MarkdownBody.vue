@@ -105,8 +105,8 @@ async function onClick(event: MouseEvent): Promise<void> {
 <style scoped>
 .ec-md {
   color: var(--ec-fg);
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: var(--ec-text-body);
+  line-height: calc(var(--ec-leading-read) / var(--ec-text-body));
   overflow-wrap: anywhere;
 }
 
@@ -129,16 +129,13 @@ async function onClick(event: MouseEvent): Promise<void> {
 }
 
 .ec-md :deep(h1) {
-  font-size: 1.25em;
+  font-size: var(--ec-text-title);
 }
 
-.ec-md :deep(h2) {
-  font-size: 1.125em;
-}
-
+.ec-md :deep(h2),
 .ec-md :deep(h3),
 .ec-md :deep(h4) {
-  font-size: 1em;
+  font-size: var(--ec-text-body);
 }
 
 .ec-md :deep(p),
@@ -191,7 +188,7 @@ async function onClick(event: MouseEvent): Promise<void> {
   border-radius: 4px;
   background: var(--ec-skin-inset);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.92em;
+  font-size: var(--ec-text-code);
 }
 
 .ec-md :deep(.ec-md-code) {
@@ -217,7 +214,7 @@ async function onClick(event: MouseEvent): Promise<void> {
   overflow: hidden;
   color: var(--ec-fg-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--ec-text-meta);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -229,7 +226,7 @@ async function onClick(event: MouseEvent): Promise<void> {
   border-radius: 999px;
   background: var(--ec-skin);
   color: var(--ec-fg-muted);
-  font-size: 12px;
+  font-size: var(--ec-text-meta);
   cursor: pointer;
 }
 
@@ -247,7 +244,7 @@ async function onClick(event: MouseEvent): Promise<void> {
   background: transparent;
   color: var(--ec-fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
+  font-size: var(--ec-text-code);
   line-height: 1.6;
 }
 

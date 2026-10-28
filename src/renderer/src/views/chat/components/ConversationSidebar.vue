@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton } from 'naive-ui'
+import { useAnchoredPop } from '@/components/ui/useAnchoredPop'
 import type { Conversation } from '@/api/conversations'
 import type { SocketStatus } from '@/lib/clientSocket'
+import { requestUpdateCheck } from '@/lib/updateCheck'
+import brandIcon from '../../../../../../resources/icon.png'
 
 const props = defineProps<{
   conversations: Conversation[]
@@ -62,9 +65,18 @@ function toggleGroup(key: string): void {
 
 const router = useRouter()
 const route = useRoute()
+const mac = window.electron?.process.platform === 'darwin'
 const scheduleActive = computed(
   () => route.name === 'schedules' || route.name === 'schedule-detail'
 )
+const agentsActive = computed(() => route.name === 'agents')
+const settingsActive = computed(() => route.name === 'settings')
+
+function navClass(active: boolean): string {
+  return active
+    ? 'bg-[color-mix(in_srgb,var(--ec-accent)_16%,transparent)] text-[var(--ec-accent)]'
+    : 'text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]'
+}
 
 const emit = defineEmits<{
   select: [id: number]
@@ -79,21 +91,75 @@ const statusText: Record<SocketStatus, string> = {
   open: '工具通道已接通',
   closed: '已断开'
 }
+
+const menuOpen = ref(false)
+const checking = ref(false)
+const appVersion = ref('')
+const triggerRef = ref<HTMLElement | null>(null)
+const popRef = ref<HTMLElement | null>(null)
+const { style: popStyle, prepare } = useAnchoredPop(menuOpen, triggerRef, popRef, () => true)
+const updaterReady = typeof window !== 'undefined' && Boolean(window.api?.updater)
+const updateLabel = computed(() =>
+  appVersion.value ? `检查更新（v${appVersion.value}）` : '检查更新'
+)
+
+onClickOutside(
+  triggerRef,
+  () => {
+    menuOpen.value = false
+  },
+  { ignore: [popRef] }
+)
+
+onMounted(() => {
+  const updater = window.api?.updater
+  if (!updater) return
+  void updater
+    .version()
+    .then((version) => {
+      appVersion.value = version
+    })
+    .catch(() => {
+      appVersion.value = ''
+    })
+})
+
+function toggleMenu(): void {
+  if (checking.value) return
+  if (!menuOpen.value) prepare()
+  menuOpen.value = !menuOpen.value
+}
+
+function logout(): void {
+  menuOpen.value = false
+  emit('logout')
+}
+
+async function checkUpdate(): Promise<void> {
+  if (!updaterReady || checking.value) return
+  checking.value = true
+  try {
+    await requestUpdateCheck()
+  } finally {
+    checking.value = false
+    menuOpen.value = false
+  }
+}
 </script>
 
 <template>
-  <aside class="flex w-72 shrink-0 flex-col border-r border-[var(--ec-border)] text-[var(--ec-fg)]">
-    <div class="flex items-center justify-between px-4 pt-4">
-      <div class="min-w-0">
-        <p class="text-[11px] tracking-[0.18em] text-[var(--ec-accent)] uppercase">Every Code</p>
-        <p class="mt-1 truncate text-sm text-[var(--ec-fg)]">{{ userName || '未命名' }}</p>
-      </div>
-      <n-button size="tiny" quaternary @click="emit('logout')">退出</n-button>
+  <aside class="ec-nav flex w-72 shrink-0 flex-col border-r border-[var(--ec-border)] text-[var(--ec-fg)]">
+    <div
+      class="flex shrink-0 items-center gap-2"
+      :class="mac ? 'window-drag h-12 pr-3 pl-20' : 'px-4 pt-4 pb-2'"
+    >
+      <img :src="brandIcon" alt="" class="h-5 w-5 shrink-0 rounded-[5px]" />
+      <span class="min-w-0 truncate text-sm font-semibold tracking-tight">Every Code</span>
     </div>
-    <div class="px-2 pt-3">
+    <div class="px-2" :class="mac ? 'pt-1' : ''">
       <button
         type="button"
-        class="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px] text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]"
+        class="nav-item flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
         @click="emit('create')"
       >
         <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
@@ -109,12 +175,8 @@ const statusText: Record<SocketStatus, string> = {
       </button>
       <button
         type="button"
-        class="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[13px]"
-        :class="
-          scheduleActive
-            ? 'bg-[color-mix(in_srgb,var(--ec-accent)_16%,transparent)] text-[var(--ec-accent)]'
-            : 'text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]'
-        "
+        class="nav-item flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm"
+        :class="navClass(scheduleActive)"
         :aria-current="scheduleActive ? 'page' : undefined"
         @click="router.push({ name: 'schedules' })"
       >
@@ -130,12 +192,54 @@ const statusText: Record<SocketStatus, string> = {
         </svg>
         定时任务
       </button>
+      <button
+        type="button"
+        class="nav-item flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm"
+        :class="navClass(agentsActive)"
+        :aria-current="agentsActive ? 'page' : undefined"
+        @click="router.push({ name: 'agents' })"
+      >
+        <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
+          <rect
+            x="3"
+            y="4.25"
+            width="10"
+            height="8"
+            rx="2"
+            stroke="currentColor"
+            stroke-width="1.2"
+          />
+          <path d="M8 2.4v1.85" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+          <circle cx="6.3" cy="8.15" r="0.7" fill="currentColor" />
+          <circle cx="9.7" cy="8.15" r="0.7" fill="currentColor" />
+        </svg>
+        智能体
+      </button>
+      <button
+        type="button"
+        class="nav-item flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm"
+        :class="navClass(settingsActive)"
+        :aria-current="settingsActive ? 'page' : undefined"
+        @click="router.push({ name: 'settings' })"
+      >
+        <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
+          <path
+            d="M2.75 4.75h1.9M8.15 4.75h5.1M2.75 11.25h5.1M12.15 11.25h1.1"
+            stroke="currentColor"
+            stroke-width="1.2"
+            stroke-linecap="round"
+          />
+          <circle cx="6" cy="4.75" r="1.45" stroke="currentColor" stroke-width="1.2" />
+          <circle cx="10" cy="11.25" r="1.45" stroke="currentColor" stroke-width="1.2" />
+        </svg>
+        设置
+      </button>
     </div>
     <div class="mt-3 flex-1 overflow-auto px-2 pb-3">
       <section v-for="group in groups" :key="group.key" class="mb-3">
         <button
           type="button"
-          class="flex w-full items-center gap-1 px-2 py-1 text-left text-xs text-[var(--ec-fg-muted)]"
+          class="flex w-full items-center gap-1 rounded-md px-2 py-1 text-left text-xs text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
           :title="group.path || undefined"
           :aria-expanded="expanded(group.key)"
           @click="toggleGroup(group.key)"
@@ -169,14 +273,14 @@ const statusText: Record<SocketStatus, string> = {
           <div
             v-for="item in group.items"
             :key="item.id"
-            class="group flex items-center gap-2 py-1 pr-1 pl-7"
+            class="conv-row group flex w-full items-center gap-2 rounded-md py-1 pr-1 pl-7 hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)]"
           >
             <button
               type="button"
-              class="min-w-0 flex-1 truncate text-left text-[13px]"
+              class="conv-hit min-w-0 flex-1 truncate text-left text-sm"
               :class="
                 item.id === activeId
-                  ? 'font-medium text-[var(--ec-fg)]'
+                  ? 'conv-active font-medium text-[var(--ec-fg)]'
                   : 'text-[var(--ec-fg-muted)]'
               "
               :title="item.title || '未命名对话'"
@@ -186,7 +290,7 @@ const statusText: Record<SocketStatus, string> = {
             </button>
             <span
               v-if="conversationDate(item.updatedAt || item.createdAt)"
-              class="shrink-0 text-[11px] text-[var(--ec-fg-muted)] group-hover:hidden"
+              class="shrink-0 text-xs text-[var(--ec-fg-muted)] group-hover:hidden"
             >
               {{ conversationDate(item.updatedAt || item.createdAt) }}
             </span>
@@ -194,7 +298,7 @@ const statusText: Record<SocketStatus, string> = {
               type="button"
               title="删除"
               aria-label="删除"
-              class="hidden h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--ec-fg-muted)] group-hover:grid hover:text-[var(--ec-danger)]"
+              class="conv-hit hidden h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--ec-fg-muted)] group-hover:grid hover:text-[var(--ec-danger)]"
               @click="emit('remove', item.id)"
             >
               <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" aria-hidden="true">
@@ -214,12 +318,140 @@ const statusText: Record<SocketStatus, string> = {
         还没有对话
       </p>
     </div>
-    <p class="border-t border-[var(--ec-border)] px-4 py-3 text-xs text-[var(--ec-fg-muted)]">
-      <span
-        class="mr-2 inline-block h-1.5 w-1.5 rounded-full"
-        :class="socketStatus === 'open' ? 'bg-[var(--ec-success)]' : 'bg-[var(--ec-fg-muted)]'"
-      />
-      {{ statusText[socketStatus] }}
-    </p>
+    <div class="border-t border-[var(--ec-border)] p-2">
+      <button
+        ref="triggerRef"
+        type="button"
+        class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
+        :aria-expanded="menuOpen"
+        aria-haspopup="menu"
+        @click="toggleMenu"
+      >
+        <span
+          class="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+          :class="socketStatus === 'open' ? 'bg-[var(--ec-success)]' : 'bg-[var(--ec-fg-muted)]'"
+        />
+        <span class="min-w-0 flex-1 truncate">{{ statusText[socketStatus] }}</span>
+        <svg
+          viewBox="0 0 16 16"
+          class="h-3 w-3 shrink-0 transition-transform"
+          :class="menuOpen ? 'rotate-180' : ''"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 10.25 8 6.25 12 10.25"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+      <Teleport to="body">
+        <div
+          v-if="menuOpen"
+          ref="popRef"
+          class="account-pop ec-stage"
+          role="menu"
+          :style="popStyle"
+          @click.stop
+        >
+          <button
+            type="button"
+            class="item server"
+            role="menuitem"
+            :title="userName || '未设置'"
+            @click="menuOpen = false"
+          >
+            <span class="kicker">当前服务器</span>
+            <span class="host">{{ userName || '未设置' }}</span>
+          </button>
+          <button
+            type="button"
+            class="item"
+            role="menuitem"
+            :disabled="checking || !updaterReady"
+            @click="checkUpdate"
+          >
+            {{ checking ? '正在检查更新' : updateLabel }}
+          </button>
+          <button type="button" class="item danger" role="menuitem" @click="logout">退出登录</button>
+        </div>
+      </Teleport>
+    </div>
   </aside>
 </template>
+
+<style scoped>
+.nav-item:hover,
+.conv-hit:hover {
+  background-image: none;
+}
+
+.account-pop {
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow);
+}
+
+.item {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ec-text-body);
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.item.server {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.item.danger {
+  color: var(--error);
+}
+
+.item.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+}
+
+.kicker {
+  flex-shrink: 0;
+  font-size: var(--ec-text-meta);
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.host {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

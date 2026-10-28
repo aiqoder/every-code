@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NInput, NSelect, type SelectOption } from 'naive-ui'
+import UiSelect from '@/components/ui/UiSelect.vue'
+import UiTextarea from '@/components/ui/UiTextarea.vue'
+import type { SelectOption } from '@/components/ui/types'
 import type { AgentItem, ModelItem } from '@/api/catalog'
 
 const props = defineProps<{
@@ -8,7 +10,6 @@ const props = defineProps<{
   models: ModelItem[]
   agentId: string
   modelId: number | null
-  workspace: string
   sending: boolean
   seed?: string
   seedKey?: number
@@ -19,7 +20,6 @@ const emit = defineEmits<{
   'update:modelId': [value: number]
   send: [text: string]
   stop: []
-  pickWorkspace: []
 }>()
 
 const draft = ref('')
@@ -61,7 +61,7 @@ function onKeydown(event: KeyboardEvent): void {
   }
 }
 
-function onAgentChange(value: string | number | Array<string | number> | null): void {
+function onAgentChange(value: string | number | null): void {
   if (typeof value === 'string') {
     emit('update:agentId', value)
     return
@@ -69,7 +69,7 @@ function onAgentChange(value: string | number | Array<string | number> | null): 
   if (typeof value === 'number') emit('update:agentId', String(value))
 }
 
-function onModelChange(value: string | number | Array<string | number> | null): void {
+function onModelChange(value: string | number | null): void {
   const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN
   if (Number.isFinite(parsed)) emit('update:modelId', parsed)
 }
@@ -78,49 +78,42 @@ function onModelChange(value: string | number | Array<string | number> | null): 
 <template>
   <form class="px-4 pt-2 pb-4" @submit.prevent="submit">
     <div
-      class="composer-card ec-skin-raised mx-auto max-w-3xl rounded-2xl px-3 pt-1 pb-2 shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+      class="composer-card mx-auto max-w-3xl rounded-2xl border px-3 pt-1 pb-2"
     >
-      <n-input
-        v-model:value="draft"
-        type="textarea"
+      <UiTextarea
+        v-model="draft"
         :rows="2"
         :bordered="false"
-        :resizable="false"
-        placeholder="今天帮你做些什么？"
+        placeholder="想干什么就告诉我？"
         class="select-text"
         @keydown="onKeydown"
       />
       <div class="mt-1 flex items-center gap-1">
         <div class="composer-select w-36 shrink-0">
-          <n-select
-            size="small"
-            :value="agentId || null"
+          <UiSelect
+            variant="ghost"
+            size="medium"
+            :model-value="agentId || null"
             :options="agentOptions"
             placeholder="智能体"
-            @update:value="onAgentChange"
+            @update:model-value="onAgentChange"
           />
         </div>
-        <button
-          type="button"
-          class="max-w-40 truncate rounded-md px-2 py-1 text-xs text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
-          @click="emit('pickWorkspace')"
-        >
-          {{ workspace || '工作目录' }}
-        </button>
         <span class="flex-1" />
         <div class="composer-select w-44 shrink-0">
-          <n-select
-            size="small"
-            :value="modelId"
+          <UiSelect
+            variant="ghost"
+            size="medium"
+            :model-value="modelId"
             :options="modelOptions"
             placeholder="模型"
-            @update:value="onModelChange"
+            @update:model-value="onModelChange"
           />
         </div>
         <button
           v-if="sending"
           type="button"
-          class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--ec-fg)] text-[var(--ec-canvas)]"
+          class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--ec-fg)] text-[var(--ec-canvas)] hover:brightness-110"
           aria-label="停止"
           @click="emit('stop')"
         >
@@ -132,7 +125,7 @@ function onModelChange(value: string | number | Array<string | number> | null): 
           class="grid h-8 w-8 shrink-0 place-items-center rounded-full disabled:cursor-default"
           :class="
             draft.trim()
-              ? 'bg-[var(--ec-accent)] text-[var(--ec-on-accent)]'
+              ? 'bg-[var(--ec-accent)] text-[var(--ec-on-accent)] hover:bg-[var(--accent-hover)]'
               : 'bg-[color-mix(in_srgb,var(--ec-fg)_12%,transparent)] text-[var(--ec-fg-muted)]'
           "
           aria-label="发送"
@@ -154,30 +147,13 @@ function onModelChange(value: string | number | Array<string | number> | null): 
 </template>
 
 <style scoped>
-.composer-card :deep(.n-input),
-.composer-card :deep(.n-input-wrapper),
-.composer-card :deep(.n-input__textarea-el),
-.composer-card :deep(.n-input__placeholder),
-.composer-card :deep(.n-base-selection),
-.composer-card :deep(.n-base-selection-label) {
-  background-color: transparent !important;
-  box-shadow: none !important;
+.composer-card {
+  background: var(--ec-field);
+  border-color: var(--ec-field-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 
-.composer-select :deep(.n-base-selection) {
-  --n-border: transparent;
-  --n-border-hover: transparent;
-  --n-border-focus: transparent;
-  --n-border-active: transparent;
-  --n-box-shadow-focus: none;
-  --n-box-shadow-active: none;
-  --n-color: transparent;
-  --n-color-active: transparent;
-}
-
-.composer-select :deep(.n-base-selection__border),
-.composer-select :deep(.n-base-selection__state-border) {
-  border-color: transparent !important;
-  box-shadow: none !important;
+.composer-card:focus-within {
+  border-color: var(--ec-accent);
 }
 </style>

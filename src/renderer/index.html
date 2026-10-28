@@ -10,13 +10,15 @@
     />
     <script>
       ;(function () {
-        var theme = 'github-dark'
+        var appearance = 'system'
         try {
           var stored = localStorage.getItem('everycode.theme')
-          if (stored === 'github-dark' || stored === 'github-light' || stored === 'github-dimmed') {
-            theme = stored
+          if (stored === 'github-dark' || stored === 'github-light' || stored === 'system') {
+            appearance = stored
           }
         } catch (e) {}
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+        var theme = appearance === 'system' ? (dark ? 'github-dark' : 'github-light') : appearance
         document.documentElement.dataset.theme = theme
         document.documentElement.style.colorScheme = theme === 'github-light' ? 'light' : 'dark'
       })()

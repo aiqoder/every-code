@@ -1,21 +1,27 @@
 import { acceptHMRUpdate, defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
-  defaultThemeId,
-  isThemeId,
+  defaultAppearance,
+  isAppearanceId,
+  resolveTheme,
   themeStorageKey,
   themes,
+  type AppearanceId,
   type ThemeId
 } from '@/theme/github'
 
-function readThemeId(): ThemeId {
+function readAppearance(): AppearanceId {
   try {
     const stored = localStorage.getItem(themeStorageKey)
-    if (stored && isThemeId(stored)) return stored
+    if (stored && isAppearanceId(stored)) return stored
   } catch {
-    // localStorage 不可用时回落到默认暗色
+    // localStorage 不可用时回落到跟随系统
   }
-  return defaultThemeId
+  return defaultAppearance
+}
+
+function prefersDark(): boolean {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
 function applyDocumentTheme(id: ThemeId): void {
@@ -31,23 +37,31 @@ function applyDocumentTheme(id: ThemeId): void {
 }
 
 export const useThemeStore = defineStore('theme', () => {
-  const current = ref<ThemeId>(readThemeId())
-  applyDocumentTheme(current.value)
+  const current = ref<AppearanceId>(readAppearance())
+  const systemDark = ref(prefersDark())
+  const media = window.matchMedia('(prefers-color-scheme: dark)')
 
-  const isDark = computed(() => themes[current.value].dark)
-  const overrides = computed(() => themes[current.value].overrides)
+  function onSystemChange(): void {
+    systemDark.value = media.matches
+  }
 
-  function setTheme(id: ThemeId): void {
+  media.addEventListener('change', onSystemChange)
+
+  const resolved = computed(() => resolveTheme(current.value, systemDark.value))
+  const isDark = computed(() => themes[resolved.value].dark)
+
+  watch(resolved, (id) => applyDocumentTheme(id), { immediate: true })
+
+  function setTheme(id: AppearanceId): void {
     current.value = id
     try {
       localStorage.setItem(themeStorageKey, id)
     } catch {
       // 记住失败时仍切换当前文档主题
     }
-    applyDocumentTheme(id)
   }
 
-  return { current, setTheme, isDark, overrides }
+  return { current, setTheme, isDark }
 })
 
 if (import.meta.hot) {

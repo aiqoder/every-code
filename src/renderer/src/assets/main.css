@@ -1,58 +1,102 @@
 @import 'tailwindcss';
 
+/* 桌面四级：12 辅助 / 14 正文 / 16 标题 / 22 展示。等宽代码光学上小 1px。 */
+@theme inline {
+  --text-xs: var(--ec-text-meta);
+  --text-xs--line-height: 16px;
+  --text-sm: var(--ec-text-body);
+  --text-sm--line-height: 20px;
+  --text-base: var(--ec-text-title);
+  --text-base--line-height: 24px;
+  --text-2xl: var(--ec-text-display);
+  --text-2xl--line-height: 30px;
+}
+
 :root,
 html[data-theme='github-dark'] {
   color-scheme: dark;
-  --ec-canvas: #0d1117;
-  --ec-canvas-subtle: #161b22;
-  --ec-canvas-inset: #010409;
-  --ec-border: #30363d;
-  --ec-fg: #e6edf3;
-  --ec-fg-muted: #8b949e;
-  --ec-accent: #1f6feb;
-  --ec-on-accent: #ffffff;
-  --ec-success: #3fb950;
-  --ec-danger: #f85149;
-  --ec-attention: #d29922;
-  --ec-overlay: rgba(1, 4, 9, 0.65);
+  --ec-canvas: #09090b;
+  --ec-canvas-subtle: #141418;
+  --ec-canvas-inset: rgba(255, 255, 255, 0.05);
+  --ec-border: rgba(255, 255, 255, 0.1);
+  --ec-fg: #f4f4f5;
+  --ec-fg-muted: #a1a1aa;
+  --ec-accent: #6d8bff;
+  --ec-on-accent: #10131c;
+  --ec-success: #3ddc97;
+  --ec-danger: #ff6b86;
+  --ec-attention: #ffc14d;
+  --ec-overlay: rgba(0, 0, 0, 0.55);
+  --bg: var(--ec-canvas);
+  --bg-elevated: var(--ec-canvas-subtle);
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: var(--ec-border);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: var(--ec-fg);
+  --text-muted: var(--ec-fg-muted);
+  --text-dim: #c4c4ce;
+  --ec-field: #24242a;
+  --ec-field-border: rgba(255, 255, 255, 0.34);
+  --accent: var(--ec-accent);
+  --accent-hover: #8aa4ff;
+  --accent-soft: rgba(109, 139, 255, 0.16);
+  --success: var(--ec-success);
+  --error: var(--ec-danger);
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --ec-nav: #09090b;
 }
 
 html[data-theme='github-light'] {
   color-scheme: light;
-  --ec-canvas: #ffffff;
-  --ec-canvas-subtle: #f6f8fa;
-  --ec-canvas-inset: #f6f8fa;
-  --ec-border: #d0d7de;
-  --ec-fg: #1f2328;
-  --ec-fg-muted: #656d76;
-  --ec-accent: #0969da;
+  --ec-canvas: #f5f5f7;
+  --ec-canvas-subtle: #ffffff;
+  --ec-canvas-inset: rgba(17, 17, 19, 0.04);
+  --ec-border: rgba(17, 17, 19, 0.08);
+  --ec-fg: #111113;
+  --ec-fg-muted: #6b6b76;
+  --ec-accent: #3557f5;
   --ec-on-accent: #ffffff;
-  --ec-success: #1a7f37;
-  --ec-danger: #d1242f;
-  --ec-attention: #9a6700;
-  --ec-overlay: rgba(31, 35, 40, 0.4);
-}
-
-html[data-theme='github-dimmed'] {
-  color-scheme: dark;
-  --ec-canvas: #22272e;
-  --ec-canvas-subtle: #2d333b;
-  --ec-canvas-inset: #1c2128;
-  --ec-border: #444c56;
-  --ec-fg: #adbac7;
-  --ec-fg-muted: #768390;
-  --ec-accent: #316dca;
-  --ec-on-accent: #ffffff;
-  --ec-success: #57ab5a;
-  --ec-danger: #e5534b;
-  --ec-attention: #c69026;
-  --ec-overlay: rgba(28, 33, 40, 0.65);
+  --ec-success: #0a7a56;
+  --ec-danger: #e11d48;
+  --ec-attention: #b45309;
+  --ec-overlay: rgba(17, 17, 19, 0.4);
+  --bg: var(--ec-canvas);
+  --bg-elevated: var(--ec-canvas-subtle);
+  --surface: rgba(17, 17, 19, 0.04);
+  --surface-hover: rgba(17, 17, 19, 0.06);
+  --border: var(--ec-border);
+  --border-strong: rgba(17, 17, 19, 0.16);
+  --text: var(--ec-fg);
+  --text-muted: var(--ec-fg-muted);
+  --text-dim: #9898a2;
+  --ec-field: #ffffff;
+  --ec-field-border: rgba(17, 17, 19, 0.14);
+  --accent: var(--ec-accent);
+  --accent-hover: #2746e6;
+  --accent-soft: rgba(53, 87, 245, 0.12);
+  --success: var(--ec-success);
+  --error: var(--ec-danger);
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow: 0 8px 28px rgba(17, 17, 19, 0.08);
+  --ec-nav: #f7f7f7;
 }
 
 :root {
   --ec-skin: var(--ec-canvas);
   --ec-skin-raised: var(--ec-canvas-subtle);
   --ec-skin-inset: var(--ec-canvas-inset);
+  --ec-text-meta: 12px;
+  --ec-text-body: 14px;
+  --ec-text-title: 16px;
+  --ec-text-display: 22px;
+  --ec-text-code: 13px;
+  --ec-leading-read: 24px;
 }
 
 html,
@@ -65,7 +109,10 @@ body {
   margin: 0;
   color: var(--ec-fg);
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Segoe UI', 'Noto Sans',
+    Helvetica, Arial, sans-serif;
+  font-size: var(--ec-text-body);
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   background-color: var(--ec-canvas);
 }
@@ -77,8 +124,42 @@ select {
   font: inherit;
 }
 
+::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+button,
+summary,
+label:has(input[type='checkbox']),
+label:has(input[type='radio']) {
+  cursor: pointer;
+}
+
+button:disabled,
+summary:disabled {
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover,
+summary:hover,
+label:has(input[type='checkbox']):hover,
+label:has(input[type='radio']):hover {
+  background-image: linear-gradient(var(--surface-hover), var(--surface-hover));
+}
+
 .select-text {
   user-select: text;
+}
+
+.window-drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.window-drag :is(button, a, input, textarea, select, label) {
+  -webkit-app-region: no-drag;
+  user-select: auto;
 }
 
 .ec-skin {
@@ -93,14 +174,24 @@ select {
   background-color: var(--ec-canvas-inset);
 }
 
-.n-input,
-.n-base-selection,
-.n-base-selection-label {
-  background-color: var(--ec-canvas-inset) !important;
+.ec-nav {
+  background-color: var(--ec-nav);
+  color: var(--ec-fg);
 }
 
-.n-base-select-menu,
-.n-dropdown-menu,
-.n-popover {
-  background-color: var(--ec-canvas-subtle) !important;
+html[data-theme='github-light'] .ec-nav {
+  --ec-fg: #000;
+  --ec-fg-muted: #000;
+  color: #000;
+}
+
+html[data-theme='github-light'] .ec-nav [aria-current='page'],
+html[data-theme='github-light'] .ec-nav .conv-active {
+  font-weight: 700;
+  color: #000;
+}
+
+.ec-stage {
+  background-color: var(--ec-canvas-subtle);
+  color: var(--ec-fg);
 }

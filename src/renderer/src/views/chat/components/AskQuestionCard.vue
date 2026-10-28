@@ -159,12 +159,12 @@ function submit(): void {
       >
     </div>
     <fieldset v-for="entry in question.questions" :key="entry.id" class="mt-3 border-0 p-0">
-      <legend class="mb-1.5 text-[13px] text-[var(--ec-fg)]">{{ entry.prompt }}</legend>
+      <legend class="mb-1.5 text-sm text-[var(--ec-fg)]">{{ entry.prompt }}</legend>
       <div class="grid gap-1.5">
         <label
           v-for="opt in entry.options"
           :key="opt.id"
-          class="flex items-center gap-2 text-[13px] text-[var(--ec-fg-muted)]"
+          class="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
         >
           <input
             :type="entry.allowMultiple ? 'checkbox' : 'radio'"
@@ -175,7 +175,9 @@ function submit(): void {
           />
           <span>{{ opt.label }}</span>
         </label>
-        <label class="flex items-center gap-2 text-[13px] text-[var(--ec-fg-muted)]">
+        <label
+          class="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
+        >
           <input
             :type="entry.allowMultiple ? 'checkbox' : 'radio'"
             :name="`${item.id}-${entry.id}`"
@@ -189,7 +191,7 @@ function submit(): void {
           v-if="isChecked(entry.id, OTHER_OPTION_ID)"
           v-model="otherText[entry.id]"
           type="text"
-          class="ec-skin-inset ml-6 rounded-lg border border-[var(--ec-border)] px-2 py-1 text-[13px] text-[var(--ec-fg)] outline-none disabled:opacity-60"
+          class="ml-6 rounded-lg border border-[var(--ec-field-border)] bg-[var(--ec-field)] px-2 py-1 text-sm text-[var(--ec-fg)] outline-none disabled:opacity-60"
           placeholder="请填写"
           :disabled="locked"
           @input="localError = ''"
@@ -199,7 +201,7 @@ function submit(): void {
     <p v-if="shownError" class="mt-2 text-xs text-[var(--ec-danger)]">{{ shownError }}</p>
     <button
       type="submit"
-      class="mt-3 rounded-full bg-[var(--ec-accent)] px-3.5 py-1.5 text-xs text-[var(--ec-on-accent)] disabled:cursor-default disabled:opacity-60"
+      class="mt-3 rounded-full bg-[var(--ec-accent)] px-3.5 py-1.5 text-sm text-[var(--ec-on-accent)] hover:bg-[var(--accent-hover)] disabled:cursor-default disabled:opacity-60"
       :disabled="locked"
     >
       {{ buttonLabel }}

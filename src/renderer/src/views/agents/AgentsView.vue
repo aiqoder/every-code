@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { NButton, useMessage } from 'naive-ui'
+import UiButton from '@/components/ui/UiButton.vue'
+import { useMessage } from '@/components/ui/feedback'
 import { listAgents, resolveAgentKey, type AgentItem } from '@/api/catalog'
 import { useSessionStore } from '@/stores/sessionStore'
 import type { LoopPackage } from '@shared/loop'
@@ -21,7 +22,7 @@ const errorText = ref('')
 const installOpen = ref(false)
 const installError = ref('')
 
-const palette = ['#1f6feb', '#3fb950', '#d29922', '#8957e5', '#f85149', '#39c5cf']
+const palette = ['#3557f5', '#0a7a56', '#c2410c', '#6d5bd0', '#e11d48', '#0e7490']
 const query = ref('')
 const focusId = ref('')
 const envDraft = ref<Record<string, string>>({})
@@ -296,13 +297,13 @@ async function onOpenToolsDir(): Promise<void> {
 </script>
 
 <template>
-  <div class="relative flex h-full min-h-0 flex-col text-[var(--ec-fg)]">
+  <div class="ec-stage relative flex h-full min-h-0 flex-col text-[var(--ec-fg)]">
     <div class="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
-      <div class="flex items-center justify-between gap-2 px-6 pt-4">
-        <p class="text-sm">智能体</p>
-        <n-button size="small" type="primary" :disabled="packageBusy" @click="openInstall">
+      <div class="window-drag flex items-center justify-between gap-2 px-6 pt-4">
+        <p class="text-base font-semibold">智能体</p>
+        <UiButton size="small" type="primary" :disabled="packageBusy" @click="openInstall">
           安装
-        </n-button>
+        </UiButton>
       </div>
       <p
         v-if="errorText"
@@ -315,7 +316,7 @@ async function onOpenToolsDir(): Promise<void> {
         type="search"
         placeholder="搜索智能体"
         aria-label="搜索智能体"
-        class="mx-6 mt-3 h-8 rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 text-xs outline-none"
+        class="mx-6 mt-3 h-8 rounded-md border border-[var(--ec-field-border)] bg-[var(--ec-field)] px-2 text-sm text-[var(--ec-fg)] outline-none"
       />
       <div class="mt-3 min-h-0 flex-1 overflow-auto px-6 pb-4">
         <p class="text-xs text-[var(--ec-fg-muted)]">已安装</p>
@@ -332,7 +333,7 @@ async function onOpenToolsDir(): Promise<void> {
           >
             <button
               type="button"
-              class="flex w-full items-start gap-2 text-left"
+              class="flex w-full items-start gap-2 rounded-lg text-left hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]"
               @click="onSelectPackage(item.id)"
             >
               <img
@@ -351,7 +352,7 @@ async function onOpenToolsDir(): Promise<void> {
               <span class="min-w-0 flex-1">
                 <span class="flex items-baseline gap-2">
                   <span class="truncate text-sm">{{ item.name }}</span>
-                  <span class="shrink-0 text-[11px] text-[var(--ec-fg-muted)]">{{
+                  <span class="shrink-0 text-xs text-[var(--ec-fg-muted)]">{{
                     item.version
                   }}</span>
                 </span>
@@ -360,13 +361,13 @@ async function onOpenToolsDir(): Promise<void> {
                 </span>
                 <span
                   v-if="!item.remoteId"
-                  class="mt-0.5 block text-[11px] text-[var(--ec-attention)]"
+                  class="mt-0.5 block text-xs text-[var(--ec-attention)]"
                 >
                   未同步
                 </span>
                 <span
                   v-else-if="item.env.length && !item.envReady"
-                  class="mt-0.5 block text-[11px] text-[var(--ec-attention)]"
+                  class="mt-0.5 block text-xs text-[var(--ec-attention)]"
                 >
                   还有环境变量没填
                 </span>
@@ -387,19 +388,19 @@ async function onOpenToolsDir(): Promise<void> {
                   v-if="field.type === 'list'"
                   v-model="envDraft[field.name]"
                   rows="3"
-                  class="mt-1 w-full resize-y rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 py-1 text-xs outline-none"
+                  class="mt-1 w-full resize-y rounded-md border border-[var(--ec-field-border)] bg-[var(--ec-field)] px-2 py-1 text-sm text-[var(--ec-fg)] outline-none"
                   :placeholder="columnHint(field)"
                 />
                 <input
                   v-else
                   v-model="envDraft[field.name]"
                   :type="field.secret ? 'password' : 'text'"
-                  class="mt-1 h-8 w-full rounded-md border border-[var(--ec-border)] bg-[var(--ec-canvas)] px-2 text-xs outline-none"
+                  class="mt-1 h-8 w-full rounded-md border border-[var(--ec-field-border)] bg-[var(--ec-field)] px-2 text-sm text-[var(--ec-fg)] outline-none"
                 />
               </label>
-              <n-button class="mt-2" size="tiny" attr-type="submit" :loading="packageBusy">
+              <UiButton class="mt-2" size="tiny" attr-type="submit" :loading="packageBusy">
                 保存
-              </n-button>
+              </UiButton>
             </form>
             <div class="mt-2 flex justify-end gap-1">
               <button
@@ -498,7 +499,7 @@ async function onOpenToolsDir(): Promise<void> {
         </p>
         <button
           type="button"
-          class="mt-3 text-left text-xs text-[var(--ec-fg-muted)]"
+          class="mt-3 rounded-md px-2 py-1 text-left text-xs text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
           :title="toolsDir"
           @click="onOpenToolsDir"
         >

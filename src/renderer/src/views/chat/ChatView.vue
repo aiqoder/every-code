@@ -366,16 +366,21 @@ function numberOrNull(value: string | null): number | null {
       @remove="removeConversation"
       @logout="onLogout"
     />
-    <section v-show="isChat" class="flex min-w-0 flex-1 flex-col">
+    <section v-show="isChat" class="ec-stage flex min-w-0 flex-1 flex-col">
       <header
-        class="ec-skin flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--ec-border)] px-5"
+        class="window-drag flex h-12 shrink-0 items-center justify-between gap-4 border-b border-[var(--ec-border)] px-5"
       >
         <p class="min-w-0 truncate text-sm text-[var(--ec-fg)]">
           {{ conversations.find((item) => item.id === activeId)?.title || '新对话' }}
         </p>
-        <p class="min-w-0 truncate text-xs text-[var(--ec-fg-muted)]">
+        <button
+          type="button"
+          class="min-w-0 truncate text-xs text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]"
+          title="更换工作目录"
+          @click="pickWorkspace"
+        >
           {{ workspace || '未选择工作目录' }}
-        </p>
+        </button>
       </header>
       <p
         v-if="errorText"
@@ -391,15 +396,13 @@ function numberOrNull(value: string | null): number | null {
         v-model:model-id="modelId"
         :agents="agents"
         :models="models"
-        :workspace="workspace"
         :sending="sending"
         :seed="composerSeed"
         :seed-key="composerSeedKey"
         @send="send"
         @stop="stop"
-        @pick-workspace="pickWorkspace"
       />
     </section>
-    <router-view v-if="!isChat" class="min-h-0 min-w-0 flex-1" />
+    <router-view v-if="!isChat" class="ec-stage min-h-0 min-w-0 flex-1" />
   </div>
 </template>

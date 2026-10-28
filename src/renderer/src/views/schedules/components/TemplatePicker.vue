@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NModal } from 'naive-ui'
+import UiDialog from '@/components/ui/UiDialog.vue'
 import { describeRule } from '@shared/schedule'
 import { scheduleTemplates, type ScheduleTemplate } from '../templates'
 
@@ -14,12 +14,10 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <n-modal
+  <UiDialog
     :show="show"
-    preset="card"
     title="从模版新建"
-    :bordered="false"
-    :style="{ width: '40rem', maxWidth: 'calc(100% - 2rem)' }"
+    width="40rem"
     @update:show="emit('update:show', $event)"
   >
     <div class="grid gap-3 sm:grid-cols-3">
@@ -27,7 +25,7 @@ const emit = defineEmits<{
         v-for="item in scheduleTemplates"
         :key="item.id"
         type="button"
-        class="rounded-md border border-[var(--ec-border)] px-3 py-3 text-left hover:border-[var(--ec-accent)]"
+        class="rounded-md border border-[var(--ec-border)] px-3 py-3 text-left hover:border-[var(--ec-accent)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]"
         @click="emit('pick', item)"
       >
         <span class="block text-sm">{{ item.name }}</span>
@@ -39,5 +37,5 @@ const emit = defineEmits<{
         }}</span>
       </button>
     </div>
-  </n-modal>
+  </UiDialog>
 </template>

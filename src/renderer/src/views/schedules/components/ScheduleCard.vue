@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { NDropdown, NSwitch } from 'naive-ui'
+import UiMenu from '@/components/ui/UiMenu.vue'
+import UiSwitch from '@/components/ui/UiSwitch.vue'
+import type { MenuOption } from '@/components/ui/types'
 import {
   describeRule,
   formatDateTime,
@@ -24,11 +26,11 @@ const emit = defineEmits<{
   check: [checked: boolean]
 }>()
 
-const menu = [
+const menu: MenuOption[] = [
   { label: '查看运行记录', key: 'records' },
   { label: '打开任务', key: 'open' },
   { type: 'divider', key: 'divider' },
-  { label: '删除', key: 'remove' }
+  { label: '删除', key: 'remove', danger: true }
 ]
 
 function onMenu(key: string | number): void {
@@ -49,25 +51,29 @@ function onMenu(key: string | number): void {
         :aria-label="`选择 ${task.name}`"
         @change="emit('check', ($event.target as HTMLInputElement).checked)"
       />
-      <button type="button" class="min-w-0 flex-1 text-left" @click="emit('open')">
+      <button
+        type="button"
+        class="min-w-0 flex-1 rounded-md text-left hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)]"
+        @click="emit('open')"
+      >
         <span class="flex items-center gap-2">
           <span class="truncate text-sm">{{ task.name }}</span>
           <span
             v-if="task.lastStatus === 'failed'"
-            class="shrink-0 rounded px-1.5 py-0.5 text-[11px] text-[var(--ec-danger)]"
+            class="shrink-0 rounded px-1.5 py-0.5 text-xs text-[var(--ec-danger)]"
             :title="task.lastError"
           >
             失败
           </span>
           <span
             v-else-if="task.lastStatus === 'running'"
-            class="shrink-0 text-[11px] text-[var(--ec-accent)]"
+            class="shrink-0 text-xs text-[var(--ec-accent)]"
           >
             运行中
           </span>
           <span
             v-else-if="task.lastStatus === 'waiting'"
-            class="shrink-0 text-[11px] text-[var(--ec-attention)]"
+            class="shrink-0 text-xs text-[var(--ec-attention)]"
           >
             等待确认
           </span>
@@ -105,15 +111,15 @@ function onMenu(key: string | number): void {
           运行
         </button>
         <button type="button" class="action" @click="emit('edit')">编辑</button>
-        <n-switch
+        <UiSwitch
           size="small"
           :value="task.enabled"
           :aria-label="task.enabled ? '暂停' : '开启'"
           @update:value="emit('toggle', $event)"
         />
-        <n-dropdown trigger="click" :options="menu" @select="onMenu">
+        <UiMenu :options="menu" @select="onMenu">
           <button type="button" class="action" aria-label="更多">⋯</button>
-        </n-dropdown>
+        </UiMenu>
       </div>
     </div>
   </article>
@@ -123,7 +129,7 @@ function onMenu(key: string | number): void {
 .action {
   border-radius: 0.375rem;
   padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  font-size: var(--ec-text-meta);
   color: var(--ec-fg-muted);
 }
 

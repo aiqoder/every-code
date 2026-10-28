@@ -79,19 +79,19 @@ function readString(rec: Record<string, unknown> | null, key: string): string {
     @toggle="onToggle"
   >
     <summary
-      class="flex cursor-pointer list-none items-center gap-2 px-3 py-2 select-none [&::-webkit-details-marker]:hidden"
+      class="flex cursor-pointer list-none items-center gap-2 rounded-xl px-3 py-2 select-none hover:bg-[color-mix(in_srgb,var(--ec-fg)_6%,transparent)] [&::-webkit-details-marker]:hidden"
     >
-      <span class="text-[10px] text-[var(--ec-fg-muted)]">{{ open ? '▾' : '▸' }}</span>
-      <span class="min-w-0 flex-1 truncate text-[13px] text-[var(--ec-fg)]">{{ view.title }}</span>
+      <span class="text-xs text-[var(--ec-fg-muted)]">{{ open ? '▾' : '▸' }}</span>
+      <span class="min-w-0 flex-1 truncate text-sm text-[var(--ec-fg)]">{{ view.title }}</span>
       <span
         v-if="view.kind"
-        class="ec-skin-inset shrink-0 rounded border border-[var(--ec-border)] px-1.5 py-0.5 text-[10px] text-[var(--ec-accent)]"
+        class="ec-skin-inset shrink-0 rounded border border-[var(--ec-border)] px-1.5 py-0.5 text-xs text-[var(--ec-accent)]"
         :title="view.kind"
       >
         {{ kindLabel[view.kind] || view.kind }}
       </span>
       <span
-        class="shrink-0 text-[11px]"
+        class="shrink-0 text-xs"
         :class="
           item.pending
             ? 'text-[var(--ec-accent)]'

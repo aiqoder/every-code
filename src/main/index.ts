@@ -9,8 +9,8 @@ import { registerUpdater } from './updater'
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1360,
-    height: 760,
+    width: 1440,
+    height: 900,
     minWidth: 1080,
     minHeight: 560,
     show: false,

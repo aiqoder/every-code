@@ -112,9 +112,9 @@ function unparsedHint(raw?: string): string {
     class="ec-skin-raised rounded-xl border border-[var(--ec-border)] px-3 py-3"
   >
     <header class="flex items-center gap-2">
-      <span class="text-[11px] tracking-[0.14em] text-[var(--ec-accent)]">任务计划</span>
+      <span class="text-xs tracking-[0.14em] text-[var(--ec-accent)]">任务计划</span>
       <span
-        class="rounded-full px-1.5 py-0.5 text-[10px]"
+        class="rounded-full px-1.5 py-0.5 text-xs"
         :class="
           item.pending
             ? 'bg-[color-mix(in_srgb,var(--ec-accent)_16%,transparent)] text-[var(--ec-accent)]'
@@ -127,7 +127,7 @@ function unparsedHint(raw?: string): string {
     <template v-if="plan">
       <div class="mt-2 flex items-baseline gap-2">
         <h3 class="min-w-0 text-sm font-semibold text-[var(--ec-fg)]">{{ plan.title }}</h3>
-        <span class="font-mono text-[11px] text-[var(--ec-fg-muted)]"
+        <span class="font-mono text-xs text-[var(--ec-fg-muted)]"
           >{{ doneCount }}/{{ plan.steps.length }}</span
         >
       </div>
@@ -135,7 +135,7 @@ function unparsedHint(raw?: string): string {
         <li
           v-for="step in plan.steps"
           :key="step.id"
-          class="grid grid-cols-[18px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5"
+          class="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2 py-1.5"
           :class="
             step.status === 'in_progress'
               ? 'bg-[color-mix(in_srgb,var(--ec-accent)_14%,transparent)]'
@@ -143,14 +143,14 @@ function unparsedHint(raw?: string): string {
           "
         >
           <span
-            class="grid h-[18px] w-[18px] place-items-center rounded-full border text-[10px] leading-none"
+            class="grid h-5 w-5 place-items-center rounded-full border text-xs leading-none"
             :class="markClass(step.status)"
             aria-hidden="true"
           >
             {{ mark(step.status) }}
           </span>
           <span
-            class="min-w-0 text-[13px] leading-5"
+            class="min-w-0 text-sm leading-5"
             :class="
               step.status === 'cancelled'
                 ? 'text-[var(--ec-fg-muted)] line-through'
@@ -162,7 +162,7 @@ function unparsedHint(raw?: string): string {
             {{ step.title }}
           </span>
           <span
-            class="text-[10px]"
+            class="text-xs"
             :class="
               step.status === 'in_progress'
                 ? 'text-[var(--ec-accent)]'

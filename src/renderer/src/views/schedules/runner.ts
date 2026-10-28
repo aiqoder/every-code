@@ -47,14 +47,14 @@ export function startScheduleRunner(): () => void {
   }
 }
 
-export async function runScheduledTask(taskId: string, openWhenWaiting: boolean): Promise<void> {
+export async function runScheduledTask(taskId: string): Promise<void> {
   if (!window.api?.schedule) throw new Error('定时任务只能在桌面端使用')
   if (inflight.has(taskId)) throw new Error('任务正在运行')
   const started = await window.api.schedule.run(taskId)
   inflight.add(taskId)
   emitChanged()
   try {
-    await execute(started.task, started.run, openWhenWaiting)
+    await execute(started.task, started.run)
   } finally {
     inflight.delete(taskId)
     emitChanged()
@@ -77,7 +77,7 @@ async function pump(): Promise<void> {
         if (inflight.has(item.task.id)) continue
         inflight.add(item.task.id)
         try {
-          await execute(item.task, item.run, false)
+          await execute(item.task, item.run)
         } finally {
           inflight.delete(item.task.id)
           emitChanged()
@@ -91,11 +91,7 @@ async function pump(): Promise<void> {
   }
 }
 
-async function execute(
-  task: ScheduledTask,
-  run: ScheduleRun,
-  openWhenWaiting: boolean
-): Promise<void> {
+async function execute(task: ScheduledTask, run: ScheduleRun): Promise<void> {
   const session = useSessionStore()
   let conversationId: number | null = null
   let settled = false
@@ -121,27 +117,10 @@ async function execute(
       workspace
     })
     conversationId = conversation.id
-    const switchWorkspace =
-      task.permission === 'full' && Boolean(task.workspace) && task.workspace !== previousWorkspace
+    const switchWorkspace = Boolean(task.workspace) && task.workspace !== previousWorkspace
     if (switchWorkspace && window.api?.loop) {
       await window.api.loop.setWorkspace(task.workspace)
       switched = true
-    }
-    if (task.permission === 'default') {
-      await settle({
-        status: 'waiting',
-        conversationId,
-        summary: '等待确认后才会发送提示词',
-        error: ''
-      })
-      notify(task, '等待确认后才会发送提示词')
-      if (openWhenWaiting) {
-        await router.push({
-          name: 'chat',
-          query: { conversation: String(conversation.id), draft: task.prompt }
-        })
-      }
-      return
     }
     await waitForSocket()
     const controller = new AbortController()
