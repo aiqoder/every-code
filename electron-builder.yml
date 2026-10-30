@@ -13,7 +13,7 @@ asarUnpack:
   - resources/**
 win:
   executableName: every-code
-  icon: resources/icon.png
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -26,7 +26,12 @@ nsis:
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
-  icon: resources/icon.png
+  icon: build/icon.icns
+  # CI 没有 Developer ID。不签名时只剩链接器的临时签名，ShipIt 会报
+  # 「代码不含资源，但签名指示这些资源必须存在」。"-" 是 ad-hoc。
+  # 有正式证书后删掉 identity，并把 hardenedRuntime 改回 true。
+  identity: "-"
+  hardenedRuntime: false
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -47,7 +52,7 @@ mac:
 dmg:
   artifactName: every-code-${version}-${arch}.${ext}
 linux:
-  icon: resources/icon.png
+  icon: build/icon.png
   maintainer: aiqoder <aiqoder@users.noreply.github.com>
   category: Utility
   target:

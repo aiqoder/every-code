@@ -1,3 +1,5 @@
+import { listAllLlmModels } from '@/api/llm'
+import { isProviderEnabled } from '@/lib/providerEnabled'
 import request from '@/utils/request'
 
 export interface AgentItem {
@@ -11,6 +13,7 @@ export interface AgentItem {
 export interface ModelItem {
   id: number
   name: string
+  providerId?: number
   providerName?: string
 }
 
@@ -51,9 +54,14 @@ export function resolveAgentKey(stored: string, agents: AgentItem[]): string {
   return agents.find((item) => item.agentId)?.agentId || ''
 }
 
-export function listModels(): Promise<ModelItem[]> {
-  return request.get('/llm-models', { params: { page: 1, pageSize: 100 } }).then((data) => {
-    const page = data as unknown as Page<ModelItem> | ModelItem[]
-    return Array.isArray(page) ? page : page.list || []
-  })
+export async function listModels(): Promise<ModelItem[]> {
+  const list = await listAllLlmModels()
+  return list
+    .filter((item) => isProviderEnabled(item.providerId))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      providerId: item.providerId,
+      providerName: item.providerName || undefined
+    }))
 }

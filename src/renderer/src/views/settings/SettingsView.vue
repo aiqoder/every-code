@@ -1,49 +1,44 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import UiSwitch from '@/components/ui/UiSwitch.vue'
-import ThemeSwitch from '@/components/ThemeSwitch.vue'
+import { useRoute, useRouter } from 'vue-router'
 
-const notify = ref(true)
-const notifyReady = ref(false)
+const route = useRoute()
+const router = useRouter()
 
-onMounted(() => {
-  void loadNotify()
-})
-
-async function loadNotify(): Promise<void> {
-  if (!window.api?.schedule) return
-  notifyReady.value = true
-  notify.value = await window.api.schedule.getNotify()
-}
-
-async function onNotify(value: boolean): Promise<void> {
-  if (!window.api?.schedule) return
-  notify.value = await window.api.schedule.setNotify(value)
+function tabClass(active: boolean): string {
+  return active
+    ? 'border-[var(--ec-accent)] font-medium'
+    : 'border-transparent text-[var(--ec-fg-muted)] hover:text-[var(--ec-fg)]'
 }
 </script>
 
 <template>
   <div class="flex h-full min-h-0 flex-col text-[var(--ec-fg)]">
-    <h1 class="window-drag shrink-0 px-8 pt-6 text-base font-semibold">通用</h1>
-    <div class="min-h-0 flex-1 overflow-auto px-8 pb-6">
-      <div
-        class="mt-4 flex max-w-xl items-center justify-between gap-4 rounded-md border border-[var(--ec-border)] ec-skin-raised px-4 py-3"
-      >
-        <span class="text-sm">外观</span>
-        <ThemeSwitch />
+    <div class="window-drag flex shrink-0 items-center border-b border-[var(--ec-border)] px-5">
+      <div class="flex gap-1" role="tablist" aria-label="设置">
+        <button
+          type="button"
+          role="tab"
+          class="border-b-2 px-3 py-3 text-sm"
+          :class="tabClass(route.name === 'settings')"
+          :aria-selected="route.name === 'settings'"
+          @click="router.push({ name: 'settings' })"
+        >
+          通用
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="border-b-2 px-3 py-3 text-sm"
+          :class="tabClass(route.name === 'settings-models')"
+          :aria-selected="route.name === 'settings-models'"
+          @click="router.push({ name: 'settings-models' })"
+        >
+          模型
+        </button>
       </div>
-      <div
-        v-if="notifyReady"
-        class="mt-3 flex max-w-xl items-center justify-between gap-4 rounded-md border border-[var(--ec-border)] ec-skin-raised px-4 py-3"
-      >
-        <span>
-          <span class="block text-sm">定时任务产物通知</span>
-          <span class="mt-0.5 block text-xs text-[var(--ec-fg-muted)]"
-            >任务完成、等待确认或失败时提醒</span
-          >
-        </span>
-        <UiSwitch :value="notify" @update:value="onNotify" />
-      </div>
+    </div>
+    <div class="min-h-0 flex-1">
+      <router-view class="h-full" />
     </div>
   </div>
 </template>

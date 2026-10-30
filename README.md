@@ -1,8 +1,11 @@
-# Every Code
+> 本项目依托橙子ai平台而开发，软件并不负责agent推理，所有推理都在橙子ai服务端进行，本平台会存储您的数据以提高服务质量，这点你必须清楚。
 
-源码：https://github.com/aiqoder/every-code
+# Every Code 是什么
 
-本项目以 [MIT](LICENSE) 许可证开源。
+- 一个基于agent包理念的agent平台工具
+- 没有任何agent引擎
+- 不支持任何单独使用tools、skills
+- 他还只是一个孩子
 
 ## 工具
 
@@ -45,56 +48,3 @@ tools/<name>.js
 ```
 
 安装到 `~/.every-code/packages/`。登录后会把提示词、技能和工具同步到服务器。技能和工具都走 websocket，由这台电脑读取技能目录并执行 `.js` 工具。
-
-## Recommended IDE Setup
-
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
-
-## Project Setup
-
-### Install
-
-```bash
-$ npm install
-```
-
-### Development
-
-```bash
-$ npm run dev
-```
-
-### 环境变量
-
-| 变量                | 说明                                                         |
-| ------------------- | ------------------------------------------------------------ |
-| `VITE_API_BASE_URL` | 后端 API 基地址，供 `src/renderer/src/utils/request.ts` 使用 |
-| `VITE_APP_TITLE`    | 顶栏标题                                                     |
-
-开发与生产示例分别在 `.env.development`、`.env.production`。键名清单见 `.env.example`。含密钥的值放 `.env.development.local` / `.env.production.local`，不要提交。
-
-### 渲染进程目录
-
-```
-src/renderer/src/
-├── api/            # 接口
-├── stores/         # Pinia
-├── utils/request.ts
-├── components/     # 全局基础组件
-├── layouts/
-├── views/          # 页面，业务组件放 views/<模块>/components/
-└── router/
-```
-
-### Build
-
-```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
-```

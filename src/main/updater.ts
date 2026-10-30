@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, net } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { ProgressInfo, UpdateInfo } from 'electron-updater'
 import type { UpdateCheckResult, UpdateStatus } from '../shared/updater'
+import { installDownloadedMacApp, macInstallInProgress } from './macUpdate'
 
 const GITHUB_DOWNLOAD_ROOT = 'https://github.com/aiqoder/every-code/releases/latest/download'
 
@@ -19,6 +20,7 @@ const FEED_GRACE_MS = 1200
 let quietErrors = false
 let feedQueue: string[] = []
 let checkTask: Promise<void> | null = null
+let macUpdateReady = false
 
 function broadcast(status: UpdateStatus): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -166,6 +168,7 @@ async function downloadWithMirrors(): Promise<void> {
           }
         }
         await autoUpdater.downloadUpdate()
+        if (process.platform === 'darwin') macUpdateReady = true
         return
       } catch (error) {
         lastError = error
@@ -179,7 +182,17 @@ async function downloadWithMirrors(): Promise<void> {
 
 function configurePackagedUpdater(): void {
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
+  // macOS 交给 ShipIt 时，会用当前签名的指定要求校验新包。ad-hoc 的 cdhash 每次都变。
+  autoUpdater.autoInstallOnAppQuit = process.platform !== 'darwin'
+  if (process.platform === 'darwin') {
+    app.on('before-quit', (event) => {
+      if (!macUpdateReady || macInstallInProgress()) return
+      event.preventDefault()
+      void installDownloadedMacApp().catch((error: unknown) => {
+        broadcast({ state: 'error', message: toErrorMessage(error) || '安装更新失败' })
+      })
+    })
+  }
 
   autoUpdater.on('checking-for-update', () => {
     broadcast({ state: 'checking' })
@@ -234,8 +247,12 @@ export function registerUpdater(): void {
     return true
   })
 
-  ipcMain.handle('updater:install', () => {
+  ipcMain.handle('updater:install', async () => {
     if (!app.isPackaged) return
+    if (process.platform === 'darwin') {
+      await installDownloadedMacApp()
+      return
+    }
     autoUpdater.quitAndInstall(false, true)
   })
 

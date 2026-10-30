@@ -57,3 +57,11 @@ export function createConversation(input: {
 export function deleteConversation(id: number): Promise<void> {
   return request.delete(`/conversations/${id}`) as unknown as Promise<void>
 }
+
+export function revertConversation(id: number, messageId: number): Promise<ConversationDetail> {
+  return request.post(`/conversations/${id}/revert`, { messageId }).then((data) => {
+    const detail = data as unknown as ConversationDetail
+    detail.messages = detail.messages || []
+    return detail
+  })
+}

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import UiAvatar from '@/components/ui/UiAvatar.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 import UiTextarea from '@/components/ui/UiTextarea.vue'
 import type { SelectOption } from '@/components/ui/types'
 import type { AgentItem, ModelItem } from '@/api/catalog'
+import type { LoopPackage } from '@shared/loop'
 
 const props = defineProps<{
   agents: AgentItem[]
+  packages: LoopPackage[]
+  agentLocked: boolean
   models: ModelItem[]
   agentId: string
   modelId: number | null
@@ -31,13 +35,23 @@ watch(
   }
 )
 
+function avatarOf(agent: AgentItem): string {
+  const pkg = props.packages.find((item) => item.remoteId != null && item.remoteId === agent.id)
+  return pkg?.avatar || ''
+}
+
 const agentOptions = computed<SelectOption[]>(() =>
   props.agents
     .filter((agent) => agent.agentId)
     .map((agent) => ({
       label: agent.name,
-      value: agent.agentId
+      value: agent.agentId,
+      avatar: avatarOf(agent)
     }))
+)
+
+const currentAgent = computed(
+  () => agentOptions.value.find((item) => item.value === props.agentId) || null
 )
 
 const modelOptions = computed<SelectOption[]>(() =>
@@ -89,7 +103,19 @@ function onModelChange(value: string | number | null): void {
         @keydown="onKeydown"
       />
       <div class="mt-1 flex items-center gap-1">
-        <div class="composer-select w-36 shrink-0">
+        <div
+          v-if="agentLocked"
+          class="flex h-8 max-w-48 min-w-0 shrink-0 items-center gap-1.5 px-2.5 text-sm text-[var(--ec-fg)]"
+          :title="currentAgent?.label"
+        >
+          <UiAvatar
+            v-if="currentAgent"
+            :name="currentAgent.label"
+            :image="currentAgent.avatar"
+          />
+          <span class="truncate">{{ currentAgent?.label || '智能体' }}</span>
+        </div>
+        <div v-else class="min-w-0 max-w-48 shrink">
           <UiSelect
             variant="ghost"
             size="medium"
@@ -100,7 +126,7 @@ function onModelChange(value: string | number | null): void {
           />
         </div>
         <span class="flex-1" />
-        <div class="composer-select w-44 shrink-0">
+        <div class="min-w-0 max-w-48 shrink">
           <UiSelect
             variant="ghost"
             size="medium"

@@ -7,12 +7,22 @@ import type { Conversation } from '@/api/conversations'
 import type { SocketStatus } from '@/lib/clientSocket'
 import { requestUpdateCheck } from '@/lib/updateCheck'
 import brandIcon from '../../../../../../resources/icon.png'
+import PlusIcon from './icons/PlusIcon.vue'
+import FolderPlusIcon from './icons/FolderPlusIcon.vue'
+import ClockIcon from './icons/ClockIcon.vue'
+import AgentIcon from './icons/AgentIcon.vue'
+import SettingsIcon from './icons/SettingsIcon.vue'
+import ChevronRightIcon from './icons/ChevronRightIcon.vue'
+import FolderIcon from './icons/FolderIcon.vue'
+import TrashIcon from './icons/TrashIcon.vue'
+import ChevronUpIcon from './icons/ChevronUpIcon.vue'
 
 const props = defineProps<{
   conversations: Conversation[]
   activeId: number | null
   userName: string
   socketStatus: SocketStatus
+  workspace: string
 }>()
 
 const groups = computed(() => {
@@ -27,6 +37,17 @@ const groups = computed(() => {
     }
     buckets.set(key, [item])
     order.push(key)
+  }
+  const current = props.workspace.trim()
+  if (!buckets.has(current)) {
+    buckets.set(current, [])
+    order.unshift(current)
+  } else {
+    const index = order.indexOf(current)
+    if (index > 0) {
+      order.splice(index, 1)
+      order.unshift(current)
+    }
   }
   return order.map((key) => ({
     key: key || '__none__',
@@ -70,7 +91,9 @@ const scheduleActive = computed(
   () => route.name === 'schedules' || route.name === 'schedule-detail'
 )
 const agentsActive = computed(() => route.name === 'agents')
-const settingsActive = computed(() => route.name === 'settings')
+const settingsActive = computed(
+  () => route.name === 'settings' || route.name === 'settings-models'
+)
 
 function navClass(active: boolean): string {
   return active
@@ -80,7 +103,8 @@ function navClass(active: boolean): string {
 
 const emit = defineEmits<{
   select: [id: number]
-  create: []
+  create: [workspace: string]
+  createWorkspace: []
   remove: [id: number]
   logout: []
 }>()
@@ -160,17 +184,9 @@ async function checkUpdate(): Promise<void> {
       <button
         type="button"
         class="nav-item flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
-        @click="emit('create')"
+        @click="emit('create', workspace)"
       >
-        <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
-          <circle cx="8" cy="8" r="6.15" stroke="currentColor" stroke-width="1.2" />
-          <path
-            d="M8 5.15v5.7M5.15 8h5.7"
-            stroke="currentColor"
-            stroke-width="1.2"
-            stroke-linecap="round"
-          />
-        </svg>
+        <PlusIcon class="h-4 w-4 shrink-0" />
         新对话
       </button>
       <button
@@ -180,16 +196,7 @@ async function checkUpdate(): Promise<void> {
         :aria-current="scheduleActive ? 'page' : undefined"
         @click="router.push({ name: 'schedules' })"
       >
-        <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
-          <circle cx="8" cy="8" r="6.15" stroke="currentColor" stroke-width="1.2" />
-          <path
-            d="M8 4.9V8.2l2.1 1.4"
-            stroke="currentColor"
-            stroke-width="1.2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <ClockIcon class="h-4 w-4 shrink-0" />
         定时任务
       </button>
       <button
@@ -199,20 +206,7 @@ async function checkUpdate(): Promise<void> {
         :aria-current="agentsActive ? 'page' : undefined"
         @click="router.push({ name: 'agents' })"
       >
-        <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
-          <rect
-            x="3"
-            y="4.25"
-            width="10"
-            height="8"
-            rx="2"
-            stroke="currentColor"
-            stroke-width="1.2"
-          />
-          <path d="M8 2.4v1.85" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-          <circle cx="6.3" cy="8.15" r="0.7" fill="currentColor" />
-          <circle cx="9.7" cy="8.15" r="0.7" fill="currentColor" />
-        </svg>
+        <AgentIcon class="h-4 w-4 shrink-0" />
         智能体
       </button>
       <button
@@ -222,54 +216,56 @@ async function checkUpdate(): Promise<void> {
         :aria-current="settingsActive ? 'page' : undefined"
         @click="router.push({ name: 'settings' })"
       >
-        <svg viewBox="0 0 16 16" class="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
-          <path
-            d="M2.75 4.75h1.9M8.15 4.75h5.1M2.75 11.25h5.1M12.15 11.25h1.1"
-            stroke="currentColor"
-            stroke-width="1.2"
-            stroke-linecap="round"
-          />
-          <circle cx="6" cy="4.75" r="1.45" stroke="currentColor" stroke-width="1.2" />
-          <circle cx="10" cy="11.25" r="1.45" stroke="currentColor" stroke-width="1.2" />
-        </svg>
+        <SettingsIcon class="h-4 w-4 shrink-0" />
         设置
       </button>
     </div>
-    <div class="mt-3 flex-1 overflow-auto px-2 pb-3">
+    <div class="mt-3 flex items-center justify-between px-4 py-1">
+      <span class="text-xs text-[var(--ec-fg-muted)]">工作目录</span>
+      <button
+        type="button"
+        title="新建工作目录"
+        aria-label="新建工作目录"
+        class="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
+        @click="emit('createWorkspace')"
+      >
+        <FolderPlusIcon class="h-3.5 w-3.5" />
+      </button>
+    </div>
+    <div class="min-h-0 flex-1 overflow-auto px-2 pb-3">
       <section v-for="group in groups" :key="group.key" class="mb-3">
-        <button
-          type="button"
-          class="flex w-full items-center gap-1 rounded-md px-2 py-1 text-left text-xs text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
-          :title="group.path || undefined"
-          :aria-expanded="expanded(group.key)"
-          @click="toggleGroup(group.key)"
-        >
-          <svg
-            viewBox="0 0 16 16"
-            class="h-3 w-3 shrink-0 transition-transform"
-            :class="expanded(group.key) ? 'rotate-90' : ''"
-            fill="none"
-            aria-hidden="true"
+        <div class="group/folder flex items-center gap-0.5">
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-1 rounded-md px-2 py-1 text-left text-xs text-[var(--ec-fg-muted)] hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
+            :title="group.path || undefined"
+            :aria-expanded="expanded(group.key)"
+            @click="toggleGroup(group.key)"
           >
-            <path
-              d="M6 4.25 10 8 6 11.75"
-              stroke="currentColor"
-              stroke-width="1.4"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+            <ChevronRightIcon
+              class="h-3 w-3 shrink-0 transition-transform"
+              :class="expanded(group.key) ? 'rotate-90' : ''"
             />
-          </svg>
-          <svg viewBox="0 0 16 16" class="h-3.5 w-3.5 shrink-0" fill="none" aria-hidden="true">
-            <path
-              d="M2.2 4.6c0-.6.5-1.1 1.1-1.1h2.2l1.1 1.2h6.1c.6 0 1.1.5 1.1 1.1v5.6c0 .6-.5 1.1-1.1 1.1H3.3c-.6 0-1.1-.5-1.1-1.1V4.6Z"
-              stroke="currentColor"
-              stroke-width="1.2"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span class="min-w-0 truncate">{{ group.label }}</span>
-        </button>
+            <FolderIcon class="h-3.5 w-3.5 shrink-0" />
+            <span class="min-w-0 truncate">{{ group.label }}</span>
+          </button>
+          <button
+            type="button"
+            title="新建对话"
+            aria-label="新建对话"
+            class="grid h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--ec-fg-muted)] opacity-0 pointer-events-none group-hover/folder:pointer-events-auto group-hover/folder:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 hover:bg-[color-mix(in_srgb,var(--ec-fg)_8%,transparent)] hover:text-[var(--ec-fg)]"
+            @click="emit('create', group.path)"
+          >
+            <PlusIcon class="h-3.5 w-3.5" />
+          </button>
+        </div>
         <div v-if="expanded(group.key)">
+          <p
+            v-if="group.items.length === 0"
+            class="px-2 py-2 pl-7 text-sm text-[var(--ec-fg-muted)]"
+          >
+            还没有对话
+          </p>
           <div
             v-for="item in group.items"
             :key="item.id"
@@ -301,22 +297,11 @@ async function checkUpdate(): Promise<void> {
               class="conv-hit hidden h-6 w-6 shrink-0 place-items-center rounded-md text-[var(--ec-fg-muted)] group-hover:grid hover:text-[var(--ec-danger)]"
               @click="emit('remove', item.id)"
             >
-              <svg viewBox="0 0 16 16" class="h-3.5 w-3.5" fill="none" aria-hidden="true">
-                <path
-                  d="M3.5 4.5h9M6.4 4.5V3.3h3.2v1.2M4.6 4.5l.5 8.1h5.8l.5-8.1"
-                  stroke="currentColor"
-                  stroke-width="1.3"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
+              <TrashIcon class="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       </section>
-      <p v-if="conversations.length === 0" class="px-2 py-6 text-sm text-[var(--ec-fg-muted)]">
-        还没有对话
-      </p>
     </div>
     <div class="border-t border-[var(--ec-border)] p-2">
       <button
@@ -332,21 +317,10 @@ async function checkUpdate(): Promise<void> {
           :class="socketStatus === 'open' ? 'bg-[var(--ec-success)]' : 'bg-[var(--ec-fg-muted)]'"
         />
         <span class="min-w-0 flex-1 truncate">{{ statusText[socketStatus] }}</span>
-        <svg
-          viewBox="0 0 16 16"
+        <ChevronUpIcon
           class="h-3 w-3 shrink-0 transition-transform"
           :class="menuOpen ? 'rotate-180' : ''"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M4 10.25 8 6.25 12 10.25"
-            stroke="currentColor"
-            stroke-width="1.4"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
+        />
       </button>
       <Teleport to="body">
         <div

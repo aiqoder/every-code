@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import type { SelectOption } from './types'
+import UiAvatar from './UiAvatar.vue'
 import { useAnchoredPop } from './useAnchoredPop'
 
 const props = withDefaults(
@@ -38,13 +39,9 @@ const { style: popStyle, prepare } = useAnchoredPop(
   () => props.variant === 'field'
 )
 
-onClickOutside(
-  triggerRef,
-  () => {
-    open.value = false
-  },
-  { ignore: [popRef] }
-)
+onClickOutside(triggerRef, () => {
+  open.value = false
+}, { ignore: [popRef] })
 
 const unavailable = computed(() => props.disabled || props.options.length === 0)
 const selected = computed(
@@ -75,7 +72,11 @@ function onClear(): void {
 </script>
 
 <template>
-  <div ref="triggerRef" class="ui-select" :class="[size, variant, { open, disabled: unavailable }]">
+  <div
+    ref="triggerRef"
+    class="ui-select"
+    :class="[size, variant, { open, disabled: unavailable }]"
+  >
     <button
       type="button"
       class="trigger"
@@ -87,7 +88,12 @@ function onClear(): void {
       @click="toggle"
     >
       <span class="label" :class="{ placeholder: !selected }">
-        {{ selected?.label || placeholder }}
+        <UiAvatar
+          v-if="selected && selected.avatar !== undefined"
+          :name="selected.label"
+          :image="selected.avatar"
+        />
+        <span class="label-text">{{ selected?.label || placeholder }}</span>
       </span>
       <svg class="chevron" viewBox="0 0 16 16" aria-hidden="true">
         <path
@@ -112,7 +118,13 @@ function onClear(): void {
       </svg>
     </button>
     <Teleport to="body">
-      <div v-if="open" ref="popRef" class="select-pop ec-stage" role="listbox" :style="popStyle">
+      <div
+        v-if="open"
+        ref="popRef"
+        class="select-pop"
+        role="listbox"
+        :style="popStyle"
+      >
         <button
           v-for="option in options"
           :key="`${typeof option.value}:${option.value}`"
@@ -125,6 +137,11 @@ function onClear(): void {
           :disabled="option.disabled"
           @click="pick(option)"
         >
+          <UiAvatar
+            v-if="option.avatar !== undefined"
+            :name="option.label"
+            :image="option.avatar"
+          />
           <span class="opt-label">{{ option.label }}</span>
           <svg
             v-if="option.value === modelValue && !option.divided"
@@ -156,6 +173,12 @@ function onClear(): void {
   max-width: 100%;
 }
 
+.ui-select.ghost {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .trigger {
   display: inline-flex;
   align-items: center;
@@ -170,6 +193,14 @@ function onClear(): void {
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.ui-select.ghost .trigger {
+  width: auto;
+}
+
+.ui-select.ghost .label {
+  flex: 0 1 auto;
 }
 
 .ui-select.ghost.small .trigger {
@@ -221,7 +252,14 @@ function onClear(): void {
 }
 
 .label {
+  display: flex;
   flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.label-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -41,7 +41,6 @@ withDefaults(
   justify-content: center;
   gap: 6px;
   box-sizing: border-box;
-  margin: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: transparent;

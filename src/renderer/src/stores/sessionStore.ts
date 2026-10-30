@@ -6,6 +6,7 @@ import {
   normalizeApiBase,
   readApiBase,
   readApiKey,
+  rememberApiBase,
   saveSession
 } from '@/lib/sessionConfig'
 
@@ -31,6 +32,7 @@ export const useSessionStore = defineStore('session', () => {
     const secret = key.trim()
     if (!secret) throw new Error('请填写密钥')
     const normalized = normalizeApiBase(base)
+    rememberApiBase(normalized)
     saveSession(normalized, secret)
     apiBase.value = normalized
     try {

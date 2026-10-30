@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import macDockIcon from '../../resources/icon-mac.png?asset'
 import { registerLoop } from './loop'
 import { registerSchedule } from './schedule'
 import { registerUpdater } from './updater'
@@ -18,10 +19,10 @@ function createWindow(): void {
     title: 'Every Code',
     backgroundColor: '#0d1117',
     // 系统标题栏不跟随页面主题。macOS 收进内容区后，顶栏背景由页面自己铺。
+    icon,
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hiddenInset' as const, trafficLightPosition: { x: 14, y: 18 } }
       : {}),
-    ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -70,6 +71,8 @@ if (!hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     electronApp.setAppUserModelId('com.everycode.desktop')
+    // 程序坞按整张图画布铺满。mac 图标内容只占 824/1024，四周留透明边，否则会比系统图标大一圈。
+    if (process.platform === 'darwin') app.dock?.setIcon(macDockIcon)
 
     // Default open or close DevTools by F12 in development
     // and ignore CommandOrControl + R in production.

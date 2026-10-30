@@ -14,11 +14,13 @@ import {
   createConversation,
   deleteConversation,
   getConversation,
+  revertConversation,
   listConversations,
   type Conversation
 } from '@/api/conversations'
 import { retainClientSocket, type SocketStatus } from '@/lib/clientSocket'
 import { useSessionStore } from '@/stores/sessionStore'
+import type { LoopPackage } from '@shared/loop'
 import { applyChatEvent, messagesToTimeline } from './applyEvent'
 import ChatComposer from './components/ChatComposer.vue'
 import ChatTimeline from './components/ChatTimeline.vue'
@@ -29,6 +31,7 @@ const session = useSessionStore()
 const route = useRoute()
 const router = useRouter()
 const agents = ref<AgentItem[]>([])
+const packages = ref<LoopPackage[]>([])
 const models = ref<ModelItem[]>([])
 const conversations = ref<Conversation[]>([])
 const activeId = ref<number | null>(null)
@@ -58,6 +61,19 @@ watch(agentId, (value) => localStorage.setItem('everycode.agentId', value))
 watch(modelId, (value) => {
   if (value) localStorage.setItem('everycode.modelId', String(value))
 })
+
+watch(
+  () => route.name,
+  (name, previous) => {
+    if (
+      name === 'chat' &&
+      (previous === 'settings' || previous === 'settings-models') &&
+      session.loggedIn
+    ) {
+      void refreshModels()
+    }
+  }
+)
 
 onMounted(async () => {
   if (window.api?.loop) {
@@ -125,12 +141,26 @@ async function boot(): Promise<void> {
   } catch (err) {
     errorText.value = err instanceof Error ? err.message : '同步智能体失败'
   }
+  await loadLocalPackages()
   agentId.value = resolveAgentKey(agentId.value, agents.value)
   if (!modelId.value && modelList[0]) modelId.value = modelList[0].id
   if (typeof route.query.conversation !== 'string' && conversationList[0]) {
     await openConversation(conversationList[0].id)
   }
   await applyIntent()
+}
+
+async function loadLocalPackages(): Promise<void> {
+  if (!window.api?.loop?.listAgentHome) {
+    packages.value = []
+    return
+  }
+  try {
+    const home = await window.api.loop.listAgentHome()
+    packages.value = Array.isArray(home.packages) ? home.packages : []
+  } catch {
+    packages.value = []
+  }
 }
 
 async function applyIntent(): Promise<void> {
@@ -154,8 +184,17 @@ async function selectConversation(id: number): Promise<void> {
   await openConversation(id)
 }
 
-async function createConversationFromNav(): Promise<void> {
+async function createConversationFromNav(workspacePath = ''): Promise<void> {
   if (route.name !== 'chat') await router.push({ name: 'chat' })
+  const next = workspacePath.trim()
+  if (next && window.api?.loop && next !== workspace.value) {
+    try {
+      workspace.value = await window.api.loop.setWorkspace(next)
+    } catch (err) {
+      errorText.value = err instanceof Error ? err.message : '切换工作目录失败'
+      return
+    }
+  }
   startNew()
 }
 
@@ -179,6 +218,36 @@ function startNew(): void {
   errorText.value = ''
 }
 
+async function editAndSend(messageId: number, text: string): Promise<void> {
+  const content = text.trim()
+  if (!content || sending.value) return
+  if (!activeId.value) {
+    errorText.value = '当前没有会话，无法重新发送'
+    return
+  }
+  if (!agentId.value) {
+    errorText.value = '先选择一个智能体'
+    return
+  }
+  if (!modelId.value) {
+    errorText.value = '先选择一个模型'
+    return
+  }
+  if (!workspace.value) {
+    errorText.value = '先选择工作目录'
+    return
+  }
+  errorText.value = ''
+  try {
+    const detail = await revertConversation(activeId.value, messageId)
+    timeline.value = messagesToTimeline(detail.messages)
+  } catch (err) {
+    errorText.value = err instanceof Error ? err.message : '回退消息失败'
+    return
+  }
+  await send(content)
+}
+
 async function removeConversation(id: number): Promise<void> {
   await deleteConversation(id)
   conversations.value = conversations.value.filter((item) => item.id !== id)
@@ -192,6 +261,26 @@ async function pickWorkspace(): Promise<void> {
   }
   const picked = await window.api.loop.pickWorkspace()
   if (picked) workspace.value = picked
+}
+
+async function readChatStream(
+  conversationId: number,
+  body: Parameters<typeof streamChat>[1]
+): Promise<string> {
+  let streamError = ''
+  const signal = abort?.signal
+  if (!signal) throw new Error('发送已中断')
+  await streamChat(
+    conversationId,
+    body,
+    (event) => {
+      if (event.type === 'error') streamError = event.error || event.text || '模型没有返回内容'
+      timeline.value = applyChatEvent(timeline.value, event)
+      void stickToBottom()
+    },
+    signal
+  )
+  return streamError
 }
 
 async function send(text: string): Promise<void> {
@@ -223,17 +312,14 @@ async function send(text: string): Promise<void> {
       activeId.value = created.id
     }
     abort = new AbortController()
-    await streamChat(
-      activeId.value,
-      { content: text, agentId: agentId.value, clientId: session.clientId },
-      (event) => {
-        timeline.value = applyChatEvent(timeline.value, event)
-        void stickToBottom()
-      },
-      abort.signal
-    )
+    const streamError = await readChatStream(activeId.value, {
+      content: text,
+      agentId: agentId.value,
+      clientId: session.clientId
+    })
     const detail = await getConversation(activeId.value)
     timeline.value = messagesToTimeline(detail.messages)
+    if (streamError) errorText.value = streamError
     const current = conversations.value.find((item) => item.id === activeId.value)
     if (current && detail.title) current.title = detail.title
   } catch (err) {
@@ -260,25 +346,18 @@ async function resumeWithAnswer(payload: QuestionAnswerPayload): Promise<void> {
   sending.value = true
   abort = new AbortController()
   try {
-    await streamChat(
-      activeId.value,
-      {
-        agentId: agentId.value,
-        clientId: session.clientId,
-        toolResults: [
-          {
-            toolCallId: payload.toolCallId,
-            name: 'AskQuestion',
-            result: JSON.stringify({ answers: payload.answers })
-          }
-        ]
-      },
-      (event) => {
-        timeline.value = applyChatEvent(timeline.value, event)
-        void stickToBottom()
-      },
-      abort.signal
-    )
+    const streamError = await readChatStream(activeId.value, {
+      agentId: agentId.value,
+      clientId: session.clientId,
+      toolResults: [
+        {
+          toolCallId: payload.toolCallId,
+          name: 'AskQuestion',
+          result: JSON.stringify({ answers: payload.answers })
+        }
+      ]
+    })
+    if (streamError) errorText.value = streamError
     const detail = await getConversation(activeId.value)
     timeline.value = messagesToTimeline(detail.messages)
     const answered = timeline.value.find(
@@ -347,6 +426,15 @@ async function stickToBottom(): Promise<void> {
   if (pane) pane.scrollTop = pane.scrollHeight
 }
 
+async function refreshModels(): Promise<void> {
+  const modelList = await listModels().catch(() => models.value)
+  models.value = modelList
+  if (modelId.value && !modelList.some((item) => item.id === modelId.value)) {
+    modelId.value = modelList[0]?.id ?? null
+    if (!modelId.value) localStorage.removeItem('everycode.modelId')
+  }
+}
+
 function numberOrNull(value: string | null): number | null {
   if (!value) return null
   const parsed = Number(value)
@@ -361,8 +449,10 @@ function numberOrNull(value: string | null): number | null {
       :active-id="activeId"
       :user-name="accountLabel"
       :socket-status="socketStatus"
+      :workspace="workspace"
       @select="selectConversation"
       @create="createConversationFromNav"
+      @create-workspace="pickWorkspace"
       @remove="removeConversation"
       @logout="onLogout"
     />
@@ -389,12 +479,19 @@ function numberOrNull(value: string | null): number | null {
         {{ errorText }}
       </p>
       <div ref="scroller" class="min-h-0 flex-1 overflow-auto">
-        <ChatTimeline :items="timeline" :sending="sending" @answer="onAnswerQuestion" />
+        <ChatTimeline
+          :items="timeline"
+          :sending="sending"
+          @answer="onAnswerQuestion"
+          @edit-send="editAndSend"
+        />
       </div>
       <ChatComposer
         v-model:agent-id="agentId"
         v-model:model-id="modelId"
         :agents="agents"
+        :packages="packages"
+        :agent-locked="activeId !== null || sending"
         :models="models"
         :sending="sending"
         :seed="composerSeed"

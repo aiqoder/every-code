@@ -33,8 +33,19 @@ const router = createRouter({
             },
             {
               path: 'settings',
-              name: 'settings',
-              component: () => import('@/views/settings/SettingsView.vue')
+              component: () => import('@/views/settings/SettingsView.vue'),
+              children: [
+                {
+                  path: '',
+                  name: 'settings',
+                  component: () => import('@/views/settings/GeneralPanel.vue')
+                },
+                {
+                  path: 'models',
+                  name: 'settings-models',
+                  component: () => import('@/views/settings/ModelsPanel.vue')
+                }
+              ]
             }
           ]
         }
